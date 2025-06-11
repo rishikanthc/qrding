@@ -3,10 +3,10 @@
 	import { Button } from 'bits-ui';
 	import { Slider } from 'bits-ui';
 
-	let mode = $state({ value: 'wifi', label: 'WiFi Network' });
+	let selectedModeValue = $state('wifi');
 	let wifiSSID = $state('');
 	let wifiPassword = $state('');
-	let wifiSecurity = $state({ value: 'WPA', label: 'WPA/WPA2' });
+	let selectedWifiSecurityValue = $state('WPA');
 	let wifiHidden = $state(false);
 	let customText = $state('');
 
@@ -25,6 +25,9 @@
 		{ value: 'WEP', label: 'WEP' },
 		{ value: 'nopass', label: 'Open' }
 	];
+
+	const currentModeLabel = $derived(modeOptions.find(opt => opt.value === selectedModeValue)?.label);
+	const currentWifiSecurityLabel = $derived(securityOptions.find(opt => opt.value === selectedWifiSecurityValue)?.label);
 
 	// Generate WiFi QR code string
 	function generateWiFiString(p_ssid, p_password, p_securityValue, p_hiddenBool) {
@@ -59,7 +62,7 @@
 		const link = document.createElement('a');
 		// Make filename more unique to try and bust browser cache for downloads
 		const timestamp = Date.now();
-		const baseFilename = mode.value === 'wifi' ? `wifi-${wifiSSID || 'network'}` : 'qrcode';
+		const baseFilename = selectedModeValue === 'wifi' ? `wifi-${wifiSSID || 'network'}` : 'qrcode';
 		// Append current size and timestamp to the filename
 		link.download = `${baseFilename}-${size}-${timestamp}.png`;
 		link.href = qrCodeDataURL;
@@ -69,10 +72,10 @@
 	// Auto-generate QR code when inputs change
 	$effect(() => {
 		// Capture reactive values from component state for this specific effect run
-		const capturedModeValue = mode.value;
+		const capturedModeValue = selectedModeValue;
 		const capturedWifiSSID = wifiSSID;
 		const capturedWifiPassword = wifiPassword;
-		const capturedWifiSecurityValue = wifiSecurity.value;
+		const capturedWifiSecurityValue = selectedWifiSecurityValue;
 		const capturedWifiHidden = wifiHidden;
 		const capturedCustomText = customText;
 		const capturedSize = size;
@@ -123,18 +126,18 @@
 	});
 </script>
 
-<div class="flex min-h-screen items-center justify-center bg-white p-8">
+<div class="flex min-h-screen items-center justify-center bg-white">
 	<div class="w-full max-w-[1080px] bg-white p-0">
 		<div class="flex gap-8">
 			<!-- Left Section -->
 			<div class="w-[350px] space-y-6">
 				<!-- Mode Selector -->
 				<div>
-					<Select.Root type="single" bind:value={mode}>
+					<Select.Root type="single" bind:value={selectedModeValue}>
 						<Select.Trigger
 							class="flex h-10 w-full items-center justify-between rounded-lg border border-black bg-white px-4 text-sm font-medium transition-colors hover:bg-gray-50"
 						>
-							<span>{mode.label}</span>
+							<span>{currentModeLabel}</span>
 							<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
 								<path
 									d="M4 6L8 10L12 6"
@@ -153,7 +156,7 @@
 								<Select.Viewport class="p-1">
 									{#each modeOptions as option}
 										<Select.Item
-											value={option}
+											value={option.value}
 											class="cursor-pointer rounded px-4 py-2 text-sm hover:bg-gray-100 data-[highlighted]:bg-gray-100"
 										>
 											{#snippet children({ selected })}
@@ -168,7 +171,7 @@
 				</div>
 
 				<!-- Input Fields -->
-				{#if mode.value === 'wifi'}
+				{#if selectedModeValue === 'wifi'}
 					<div class="space-y-4">
 						<div>
 							<label class="mb-2 block text-sm font-medium">Network Name</label>
@@ -192,11 +195,11 @@
 
 						<div>
 							<label class="mb-2 block text-sm font-medium">Security</label>
-							<Select.Root type="single" bind:value={wifiSecurity}>
+							<Select.Root type="single" bind:value={selectedWifiSecurityValue}>
 								<Select.Trigger
 									class="flex h-12 w-full items-center justify-between rounded-lg border border-black bg-white px-4 text-sm transition-colors hover:bg-gray-50"
 								>
-									<span>{wifiSecurity.label}</span>
+									<span>{currentWifiSecurityLabel}</span>
 									<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
 										<path
 											d="M4 6L8 10L12 6"
@@ -215,7 +218,7 @@
 										<Select.Viewport class="p-1">
 											{#each securityOptions as option}
 												<Select.Item
-													value={option}
+													value={option.value}
 													class="cursor-pointer rounded px-4 py-2 text-sm hover:bg-gray-100 data-[highlighted]:bg-gray-100"
 												>
 													{#snippet children({ selected })}
