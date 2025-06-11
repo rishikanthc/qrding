@@ -37,7 +37,14 @@
 	}
 
 	// Get the text to encode based on mode
-	function getTextToEncode(p_modeValue, p_wifiSSID, p_wifiPassword, p_wifiSecurityValue, p_wifiHiddenBool, p_customText) {
+	function getTextToEncode(
+		p_modeValue,
+		p_wifiSSID,
+		p_wifiPassword,
+		p_wifiSecurityValue,
+		p_wifiHiddenBool,
+		p_customText
+	) {
 		if (p_modeValue === 'wifi') {
 			if (!p_wifiSSID.trim()) return '';
 			return generateWiFiString(p_wifiSSID, p_wifiPassword, p_wifiSecurityValue, p_wifiHiddenBool);
@@ -117,10 +124,10 @@
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-white p-8">
-	<div class="w-full max-w-[900px] bg-white p-8">
+	<div class="w-full max-w-[1080px] bg-white p-0">
 		<div class="flex gap-8">
 			<!-- Left Section -->
-			<div class="flex-1 space-y-6 min-w-[350px]">
+			<div class="w-[350px] space-y-6">
 				<!-- Mode Selector -->
 				<div>
 					<Select.Root type="single" bind:value={mode}>
@@ -272,9 +279,15 @@
 			</div>
 
 			<!-- Right Section -->
-			<div class="flex-none flex flex-col items-center justify-center space-y-6" style="width: {size + 32}px;">
+			<div
+				class="flex flex-none flex-col items-center justify-center space-y-6"
+				style="width: {584}px;"
+			>
 				{#if isGenerating}
-					<div class="flex items-center justify-center rounded-lg border border-black p-4" style="width: {size + 32}px; height: {size + 32}px;">
+					<div
+						class="flex items-center justify-center rounded-lg border border-black p-4"
+						style="width: {size + 32}px; height: {size + 32}px;"
+					>
 						<div
 							class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-black"
 						></div>
@@ -301,7 +314,7 @@
 					<Button.Root
 						onclick={downloadQRCode}
 						disabled={isGenerating}
-						class="h-8 cursor-pointer rounded-lg border border-black bg-black px-6 text-sm font-medium text-white transition-colors hover:bg-gray-900 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
+						class="h-8 cursor-pointer rounded-lg border border-black bg-black px-6 text-sm font-medium text-white transition-colors hover:bg-gray-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
 					>
 						Download Image
 					</Button.Root>
