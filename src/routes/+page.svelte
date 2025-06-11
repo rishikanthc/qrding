@@ -10,6 +10,20 @@
 	let wifiHidden = $state(false);
 	let customText = $state('');
 
+	// vCard Contact Details
+	let vCardName = $state(''); // Mandatory
+	let vCardPhone = $state('');
+	let vCardEmail = $state('');
+	let vCardOrg = $state('');
+	let vCardTitle = $state('');
+	let vCardStreet = $state('');
+	let vCardCity = $state('');
+	let vCardState = $state(''); // Region/Province
+	let vCardZip = $state(''); // Postal Code
+	let vCardCountry = $state('');
+	let vCardWebsite = $state('');
+	let vCardNote = $state('');
+
 	let qrCodeDataURL = $state('');
 	let size = $state(256);
 	let errorCorrectionLevel = $state('M');
@@ -17,7 +31,8 @@
 
 	const modeOptions = [
 		{ value: 'wifi', label: 'WiFi Network' },
-		{ value: 'text', label: 'Custom Text' }
+		{ value: 'text', label: 'Custom Text' },
+		{ value: 'vcard', label: 'Contact Card (vCard)' }
 	];
 
 	const securityOptions = [
@@ -28,6 +43,78 @@
 
 	const currentModeLabel = $derived(modeOptions.find(opt => opt.value === selectedModeValue)?.label);
 	const currentWifiSecurityLabel = $derived(securityOptions.find(opt => opt.value === selectedWifiSecurityValue)?.label);
+
+	// Helper to escape characters for vCard strings
+	function escapeVCardString(str) {
+		if (!str) return '';
+		return str
+			.replace(/\\/g, '\\\\')
+			.replace(/,/g, '\\,')
+			.replace(/;/g, '\\;')
+			.replace(/\n/g, '\\n');
+	}
+
+	// Generate vCard string
+	function generateVCardString(
+		name,
+		phone,
+		email,
+		org,
+		title,
+		street,
+		city,
+		v_state,
+		zip,
+		country,
+		website,
+		note
+	) {
+		const escName = escapeVCardString(name);
+		const escPhone = escapeVCardString(phone);
+		const escEmail = escapeVCardString(email);
+		const escOrg = escapeVCardString(org);
+		const escTitle = escapeVCardString(title);
+		const escStreet = escapeVCardString(street);
+		const escCity = escapeVCardString(city);
+		const escVState = escapeVCardString(v_state);
+		const escZip = escapeVCardString(zip);
+		const escCountry = escapeVCardString(country);
+		const escWebsite = escapeVCardString(website);
+		const escNote = escapeVCardString(note);
+
+		// Mandatory fields check: Name is always mandatory.
+		// Additionally, at least one of Phone, Email, or any part of an Address must be present.
+		if (!name.trim()) return '';
+		const hasContactMethod =
+			phone.trim() ||
+			email.trim() ||
+			street.trim() ||
+			city.trim() ||
+			v_state.trim() ||
+			zip.trim() ||
+			country.trim();
+		if (!hasContactMethod) return '';
+
+		let vCard = 'BEGIN:VCARD\nVERSION:3.0\n';
+		vCard += `N:${escName};;;;\n`; // Simplified: Full Name as Last Name part for N property
+		vCard += `FN:${escName}\n`;
+
+		if (escOrg) vCard += `ORG:${escOrg}\n`;
+		if (escTitle) vCard += `TITLE:${escTitle}\n`;
+		if (escPhone) vCard += `TEL;TYPE=CELL:${escPhone}\n`; // Assuming CELL, can be made configurable
+		if (escEmail) vCard += `EMAIL:${escEmail}\n`;
+
+		// Address: Only add ADR field if at least one address component is present
+		if (escStreet || escCity || escVState || escZip || escCountry) {
+			vCard += `ADR;TYPE=HOME:;;${escStreet};${escCity};${escVState};${escZip};${escCountry}\n`;
+		}
+
+		if (escWebsite) vCard += `URL:${escWebsite}\n`;
+		if (escNote) vCard += `NOTE:${escNote}\n`;
+
+		vCard += 'END:VCARD';
+		return vCard;
+	}
 
 	// Generate WiFi QR code string
 	function generateWiFiString(p_ssid, p_password, p_securityValue, p_hiddenBool) {
@@ -46,13 +133,40 @@
 		p_wifiPassword,
 		p_wifiSecurityValue,
 		p_wifiHiddenBool,
-		p_customText
+		p_customText,
+		pVCardName,
+		pVCardPhone,
+		pVCardEmail,
+		pVCardOrg,
+		pVCardTitle,
+		pVCardStreet,
+		pVCardCity,
+		pVCardState,
+		pVCardZip,
+		pVCardCountry,
+		pVCardWebsite,
+		pVCardNote
 	) {
 		if (p_modeValue === 'wifi') {
 			if (!p_wifiSSID.trim()) return '';
 			return generateWiFiString(p_wifiSSID, p_wifiPassword, p_wifiSecurityValue, p_wifiHiddenBool);
+		} else if (p_modeValue === 'vcard') {
+			return generateVCardString(
+				pVCardName,
+				pVCardPhone,
+				pVCardEmail,
+				pVCardOrg,
+				pVCardTitle,
+				pVCardStreet,
+				pVCardCity,
+				pVCardState,
+				pVCardZip,
+				pVCardCountry,
+				pVCardWebsite,
+				pVCardNote
+			);
 		}
-		return p_customText;
+		return p_customText; // This covers p_modeValue === 'text'
 	}
 
 	// Download QR code as image
@@ -62,7 +176,12 @@
 		const link = document.createElement('a');
 		// Make filename more unique to try and bust browser cache for downloads
 		const timestamp = Date.now();
-		const baseFilename = selectedModeValue === 'wifi' ? `wifi-${wifiSSID || 'network'}` : 'qrcode';
+		let baseFilename = 'qrcode';
+		if (selectedModeValue === 'wifi') {
+			baseFilename = `wifi-${wifiSSID || 'network'}`;
+		} else if (selectedModeValue === 'vcard') {
+			baseFilename = `contact-${vCardName.replace(/\s+/g, '_') || 'details'}`;
+		}
 		// Append current size and timestamp to the filename
 		link.download = `${baseFilename}-${size}-${timestamp}.png`;
 		link.href = qrCodeDataURL;
@@ -81,13 +200,39 @@
 		const capturedSize = size;
 		const capturedErrorCorrectionLevel = errorCorrectionLevel;
 
+		// Capture vCard details for the effect
+		const capturedVCardName = vCardName;
+		const capturedVCardPhone = vCardPhone;
+		const capturedVCardEmail = vCardEmail;
+		const capturedVCardOrg = vCardOrg;
+		const capturedVCardTitle = vCardTitle;
+		const capturedVCardStreet = vCardStreet;
+		const capturedVCardCity = vCardCity;
+		const capturedVCardState = vCardState;
+		const capturedVCardZip = vCardZip;
+		const capturedVCardCountry = vCardCountry;
+		const capturedVCardWebsite = vCardWebsite;
+		const capturedVCardNote = vCardNote;
+
 		const textToEncode = getTextToEncode(
 			capturedModeValue,
 			capturedWifiSSID,
 			capturedWifiPassword,
 			capturedWifiSecurityValue,
 			capturedWifiHidden,
-			capturedCustomText
+			capturedCustomText,
+			capturedVCardName,
+			capturedVCardPhone,
+			capturedVCardEmail,
+			capturedVCardOrg,
+			capturedVCardTitle,
+			capturedVCardStreet,
+			capturedVCardCity,
+			capturedVCardState,
+			capturedVCardZip,
+			capturedVCardCountry,
+			capturedVCardWebsite,
+			capturedVCardNote
 		);
 
 		// Use an Immediately Invoked Async Function Expression (IIAFE)
@@ -251,6 +396,110 @@
 							rows={8}
 							class="w-full resize-none rounded-lg border border-black px-4 py-3 text-sm focus:ring-2 focus:ring-black focus:outline-none"
 						></textarea>
+					</div>
+				{:else if selectedModeValue === 'vcard'}
+					<div class="space-y-4">
+						<p class="text-xs text-gray-600">
+							Name and at least one of Phone, Email, or Address is required.
+						</p>
+						<div>
+							<label class="mb-2 block text-sm font-medium">Full Name *</label>
+							<input
+								type="text"
+								bind:value={vCardName}
+								placeholder="John Doe"
+								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+						</div>
+						<div>
+							<label class="mb-2 block text-sm font-medium">Phone</label>
+							<input
+								type="tel"
+								bind:value={vCardPhone}
+								placeholder="+1234567890"
+								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+						</div>
+						<div>
+							<label class="mb-2 block text-sm font-medium">Email</label>
+							<input
+								type="email"
+								bind:value={vCardEmail}
+								placeholder="john.doe@example.com"
+								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+						</div>
+						<div>
+							<label class="mb-2 block text-sm font-medium">Organization</label>
+							<input
+								type="text"
+								bind:value={vCardOrg}
+								placeholder="ACME Corp"
+								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+						</div>
+						<div>
+							<label class="mb-2 block text-sm font-medium">Job Title</label>
+							<input
+								type="text"
+								bind:value={vCardTitle}
+								placeholder="Software Engineer"
+								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+						</div>
+						<div class="pt-2">
+							<label class="mb-2 block text-sm font-medium">Address</label>
+							<input
+								type="text"
+								bind:value={vCardStreet}
+								placeholder="Street Address (e.g., 123 Main St)"
+								class="mb-2 h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+							<input
+								type="text"
+								bind:value={vCardCity}
+								placeholder="City (e.g., Anytown)"
+								class="mb-2 h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+							<div class="grid grid-cols-2 gap-x-2">
+								<input
+									type="text"
+									bind:value={vCardState}
+									placeholder="State/Province"
+									class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+								/>
+								<input
+									type="text"
+									bind:value={vCardZip}
+									placeholder="ZIP/Postal Code"
+									class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+								/>
+							</div>
+							<input
+								type="text"
+								bind:value={vCardCountry}
+								placeholder="Country (e.g., USA)"
+								class="mt-2 h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+						</div>
+						<div>
+							<label class="mb-2 block text-sm font-medium">Website</label>
+							<input
+								type="url"
+								bind:value={vCardWebsite}
+								placeholder="https://example.com"
+								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							/>
+						</div>
+						<div>
+							<label class="mb-2 block text-sm font-medium">Note</label>
+							<textarea
+								bind:value={vCardNote}
+								placeholder="Additional notes"
+								rows={3}
+								class="w-full resize-none rounded-lg border border-black px-4 py-3 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+							></textarea>
+						</div>
 					</div>
 				{/if}
 
