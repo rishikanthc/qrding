@@ -27,55 +27,22 @@
 	];
 
 	// Generate WiFi QR code string
-	function generateWiFiString() {
-		const security = wifiSecurity.value;
-		const ssid = wifiSSID.replace(/[\\;,:]/g, '\\$&');
-		const password = wifiPassword.replace(/[\\;,:]/g, '\\$&');
-		const hidden = wifiHidden ? 'true' : 'false';
+	function generateWiFiString(p_ssid, p_password, p_securityValue, p_hiddenBool) {
+		const security = p_securityValue;
+		const ssid = p_ssid.replace(/[\\;,:]/g, '\\$&');
+		const password = p_password.replace(/[\\;,:]/g, '\\$&');
+		const hidden = p_hiddenBool ? 'true' : 'false';
 
 		return `WIFI:T:${security};S:${ssid};P:${password};H:${hidden};;`;
 	}
 
 	// Get the text to encode based on mode
-	function getTextToEncode() {
-		if (mode.value === 'wifi') {
-			if (!wifiSSID.trim()) return '';
-			return generateWiFiString();
+	function getTextToEncode(p_modeValue, p_wifiSSID, p_wifiPassword, p_wifiSecurityValue, p_wifiHiddenBool, p_customText) {
+		if (p_modeValue === 'wifi') {
+			if (!p_wifiSSID.trim()) return '';
+			return generateWiFiString(p_wifiSSID, p_wifiPassword, p_wifiSecurityValue, p_wifiHiddenBool);
 		}
-		return customText;
-	}
-
-	// QR code generation function
-	async function generateQRCode() {
-		const textToEncode = getTextToEncode();
-
-		if (!textToEncode.trim()) {
-			qrCodeDataURL = '';
-			return;
-		}
-
-		isGenerating = true;
-
-		try {
-			const QRCode = await import('https://cdn.skypack.dev/qrcode');
-
-			const options = {
-				width: size,
-				margin: 2,
-				color: {
-					dark: '#000000',
-					light: '#ffffff'
-				},
-				errorCorrectionLevel: errorCorrectionLevel
-			};
-
-			qrCodeDataURL = await QRCode.toDataURL(textToEncode, options);
-		} catch (error) {
-			console.error('Error generating QR code:', error);
-			qrCodeDataURL = '';
-		} finally {
-			isGenerating = false;
-		}
+		return p_customText;
 	}
 
 	// Download QR code as image
@@ -83,23 +50,77 @@
 		if (!qrCodeDataURL) return;
 
 		const link = document.createElement('a');
-		const filename = mode.value === 'wifi' ? `wifi-${wifiSSID || 'network'}.png` : 'qrcode.png';
-		link.download = filename;
+		// Make filename more unique to try and bust browser cache for downloads
+		const timestamp = Date.now();
+		const baseFilename = mode.value === 'wifi' ? `wifi-${wifiSSID || 'network'}` : 'qrcode';
+		// Append current size and timestamp to the filename
+		link.download = `${baseFilename}-${size}-${timestamp}.png`;
 		link.href = qrCodeDataURL;
 		link.click();
 	}
 
 	// Auto-generate QR code when inputs change
 	$effect(() => {
-		generateQRCode();
+		// Capture reactive values from component state for this specific effect run
+		const capturedModeValue = mode.value;
+		const capturedWifiSSID = wifiSSID;
+		const capturedWifiPassword = wifiPassword;
+		const capturedWifiSecurityValue = wifiSecurity.value;
+		const capturedWifiHidden = wifiHidden;
+		const capturedCustomText = customText;
+		const capturedSize = size;
+		const capturedErrorCorrectionLevel = errorCorrectionLevel;
+
+		const textToEncode = getTextToEncode(
+			capturedModeValue,
+			capturedWifiSSID,
+			capturedWifiPassword,
+			capturedWifiSecurityValue,
+			capturedWifiHidden,
+			capturedCustomText
+		);
+
+		// Use an Immediately Invoked Async Function Expression (IIAFE)
+		// to handle the asynchronous QR code generation.
+		(async () => {
+			if (!textToEncode.trim()) {
+				qrCodeDataURL = '';
+				// isGenerating should be false if we return early and no generation happens.
+				// However, isGenerating is set to true only if we proceed.
+				return;
+			}
+
+			isGenerating = true;
+			try {
+				const QRCode = await import('https://cdn.skypack.dev/qrcode');
+				const options = {
+					width: capturedSize, // Use captured size from the effect's scope
+					margin: 2,
+					color: {
+						dark: '#000000',
+						light: '#ffffff'
+					},
+					errorCorrectionLevel: capturedErrorCorrectionLevel // Use captured ECL
+				};
+				// Assign to a temporary variable first to ensure the await completes
+				// before updating the reactive state.
+				const dataUrl = await QRCode.toDataURL(textToEncode, options);
+				qrCodeDataURL = dataUrl;
+			} catch (error) {
+				console.error('Error generating QR code:', error);
+				qrCodeDataURL = ''; // Clear QR code on error
+			} finally {
+				isGenerating = false;
+			}
+		})();
 	});
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-white p-8">
 	<div class="w-full max-w-[900px] bg-white p-8">
-		<div class="grid grid-cols-2 gap-8">
+		<div class="flex gap-8">
 			<!-- Left Section -->
-			<div class="space-y-6">
+			<div class="flex-1 space-y-6 min-w-[350px]">
 				<!-- Mode Selector -->
 				<div>
 					<Select.Root type="single" bind:value={mode}>
@@ -251,9 +272,9 @@
 			</div>
 
 			<!-- Right Section -->
-			<div class="flex flex-col items-center justify-center space-y-6">
+			<div class="flex-none flex flex-col items-center justify-center space-y-6" style="width: {size + 32}px;">
 				{#if isGenerating}
-					<div class="flex h-64 w-64 items-center justify-center">
+					<div class="flex items-center justify-center rounded-lg border border-black p-4" style="width: {size + 32}px; height: {size + 32}px;">
 						<div
 							class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-black"
 						></div>
@@ -264,12 +285,13 @@
 							src={qrCodeDataURL}
 							alt="QR Code"
 							class="block"
-							style="width: {size}px; height: {size}px; max-width: 100%;"
+							style="width: {size}px; height: {size}px;"
 						/>
 					</div>
 				{:else}
 					<div
-						class="flex h-64 w-64 items-center justify-center rounded-lg border border-dashed border-gray-300"
+						class="flex items-center justify-center rounded-lg border border-dashed border-gray-300"
+						style="width: {size + 32}px; height: {size + 32}px;"
 					>
 						<p class="text-sm text-gray-500">QR code will appear here</p>
 					</div>
@@ -278,7 +300,8 @@
 				{#if qrCodeDataURL}
 					<Button.Root
 						onclick={downloadQRCode}
-						class="h-8 cursor-pointer rounded-lg border border-black bg-black px-6 text-sm font-medium text-white transition-colors hover:bg-gray-900"
+						disabled={isGenerating}
+						class="h-8 cursor-pointer rounded-lg border border-black bg-black px-6 text-sm font-medium text-white transition-colors hover:bg-gray-900 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
 					>
 						Download Image
 					</Button.Root>
