@@ -42,8 +42,12 @@
 		{ value: 'nopass', label: 'Open' }
 	];
 
-	const currentModeLabel = $derived(modeOptions.find(opt => opt.value === selectedModeValue)?.label);
-	const currentWifiSecurityLabel = $derived(securityOptions.find(opt => opt.value === selectedWifiSecurityValue)?.label);
+	const currentModeLabel = $derived(
+		modeOptions.find((opt) => opt.value === selectedModeValue)?.label
+	);
+	const currentWifiSecurityLabel = $derived(
+		securityOptions.find((opt) => opt.value === selectedWifiSecurityValue)?.label
+	);
 
 	// Helper to escape characters for vCard strings
 	function escapeVCardString(str) {
@@ -272,9 +276,9 @@
 	});
 </script>
 
-<div class="flex min-h-screen items-start justify-center bg-white p-4 md:p-6 lg:p-8">
+<div class="flex min-h-screen items-center justify-center bg-white p-4 md:p-6 lg:p-8">
 	<div class="w-full max-w-[1080px] bg-white">
-		<div class="flex flex-col items-center gap-8 lg:flex-row lg:items-start">
+		<div class="flex flex-col items-center gap-8 lg:flex-row lg:items-center">
 			<!-- Left Section -->
 			<div class="w-full max-w-md space-y-6 lg:w-[350px] lg:flex-none">
 				<!-- Mode Selector -->
@@ -387,16 +391,6 @@
 							/>
 							<label for="hidden" class="text-sm font-medium">Hidden Network</label>
 						</div>
-					</div>
-				{:else}
-					<div>
-						<label class="mb-2 block text-sm font-medium">Custom Text</label>
-						<textarea
-							bind:value={customText}
-							placeholder="Enter text or URL"
-							rows={8}
-							class="w-full resize-none rounded-lg border border-black px-4 py-3 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-						></textarea>
 					</div>
 				{:else if selectedModeValue === 'text'}
 					<div>
@@ -543,11 +537,11 @@
 
 			<!-- Right Section -->
 			<div
-				class="w-full flex flex-col items-center justify-start space-y-6 lg:flex-none lg:w-auto"
+				class="mx-auto flex w-full max-w-[584px] flex-col items-center justify-center space-y-6 lg:w-auto lg:flex-none"
 			>
 				{#if isGenerating}
 					<div
-						class="flex items-center justify-center rounded-lg border border-black p-4 w-full max-w-full mx-auto"
+						class="mx-auto flex w-full max-w-full items-center justify-center rounded-lg border border-black p-4"
 						style="width: {size + 32}px; height: {size + 32}px;"
 					>
 						<div
@@ -556,7 +550,7 @@
 					</div>
 				{:else if qrCodeDataURL}
 					<div
-						class="rounded-lg border border-black p-4 w-full max-w-full mx-auto"
+						class="mx-auto w-full max-w-full rounded-lg border border-black p-4"
 						style="width: {size + 32}px; height: {size + 32}px;"
 					>
 						<img
@@ -568,7 +562,7 @@
 					</div>
 				{:else}
 					<div
-						class="flex items-center justify-center rounded-lg border border-dashed border-gray-300 w-full max-w-full mx-auto"
+						class="mx-auto flex w-full max-w-full items-center justify-center rounded-lg border border-dashed border-gray-300"
 						style="width: {size + 32}px; height: {size + 32}px;"
 					>
 						<p class="text-sm text-gray-500">QR code will appear here</p>
