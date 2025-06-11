@@ -2,6 +2,7 @@
 	import { Select } from 'bits-ui';
 	import { Button } from 'bits-ui';
 	import { Slider } from 'bits-ui';
+	import QRCode from 'qrcode';
 
 	let selectedModeValue = $state('wifi');
 	let wifiSSID = $state('');
@@ -247,7 +248,7 @@
 
 			isGenerating = true;
 			try {
-				const QRCode = await import('https://cdn.skypack.dev/qrcode');
+				// QRCode is now imported statically at the top
 				const options = {
 					width: capturedSize, // Use captured size from the effect's scope
 					margin: 2,
