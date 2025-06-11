@@ -397,6 +397,16 @@
 							class="w-full resize-none rounded-lg border border-black px-4 py-3 text-sm focus:ring-2 focus:ring-black focus:outline-none"
 						></textarea>
 					</div>
+				{:else if selectedModeValue === 'text'}
+					<div>
+						<label class="mb-2 block text-sm font-medium">Custom Text</label>
+						<textarea
+							bind:value={customText}
+							placeholder="Enter text or URL"
+							rows={8}
+							class="w-full resize-none rounded-lg border border-black px-4 py-3 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+						></textarea>
+					</div>
 				{:else if selectedModeValue === 'vcard'}
 					<div class="space-y-4">
 						<p class="text-xs text-gray-600">
