@@ -272,11 +272,11 @@
 	});
 </script>
 
-<div class="flex min-h-screen items-center justify-center bg-white">
-	<div class="w-full max-w-[1080px] bg-white p-0">
-		<div class="flex gap-8">
+<div class="flex min-h-screen items-start justify-center bg-white p-4 md:p-6 lg:p-8">
+	<div class="w-full max-w-[1080px] bg-white">
+		<div class="flex flex-col items-center gap-8 lg:flex-row lg:items-start">
 			<!-- Left Section -->
-			<div class="w-[350px] space-y-6">
+			<div class="w-full max-w-md space-y-6 lg:w-[350px] lg:flex-none">
 				<!-- Mode Selector -->
 				<div>
 					<Select.Root type="single" bind:value={selectedModeValue}>
@@ -543,12 +543,11 @@
 
 			<!-- Right Section -->
 			<div
-				class="flex flex-none flex-col items-center justify-center space-y-6"
-				style="width: {584}px;"
+				class="w-full flex flex-col items-center justify-start space-y-6 lg:flex-none lg:w-auto"
 			>
 				{#if isGenerating}
 					<div
-						class="flex items-center justify-center rounded-lg border border-black p-4"
+						class="flex items-center justify-center rounded-lg border border-black p-4 w-full max-w-full mx-auto"
 						style="width: {size + 32}px; height: {size + 32}px;"
 					>
 						<div
@@ -556,17 +555,20 @@
 						></div>
 					</div>
 				{:else if qrCodeDataURL}
-					<div class="rounded-lg border border-black p-4">
+					<div
+						class="rounded-lg border border-black p-4 w-full max-w-full mx-auto"
+						style="width: {size + 32}px; height: {size + 32}px;"
+					>
 						<img
 							src={qrCodeDataURL}
 							alt="QR Code"
-							class="block"
+							class="block h-auto max-w-full object-contain"
 							style="width: {size}px; height: {size}px;"
 						/>
 					</div>
 				{:else}
 					<div
-						class="flex items-center justify-center rounded-lg border border-dashed border-gray-300"
+						class="flex items-center justify-center rounded-lg border border-dashed border-gray-300 w-full max-w-full mx-auto"
 						style="width: {size + 32}px; height: {size + 32}px;"
 					>
 						<p class="text-sm text-gray-500">QR code will appear here</p>
