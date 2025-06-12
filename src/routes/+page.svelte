@@ -19,6 +19,9 @@
 	let errorCorrectionLevel = $state('M');
 	let isGenerating = $state(false);
 
+	let darkColor = $state('#000000'); // default black
+	let lightColor = $state('#ffffff'); // default white
+
 	const modeOptions = [
 		{ value: 'text', label: 'Text' },
 		{ value: 'wifi', label: 'Wi-Fi Network' },
@@ -90,8 +93,8 @@
 					width: capturedSize, // Use captured size from the effect's scope
 					margin: 2,
 					color: {
-						dark: '#7c3aed',
-						light: '#fffbe0'
+						dark: darkColor,
+						light: lightColor
 					},
 					errorCorrectionLevel: capturedErrorCorrectionLevel // Use captured ECL
 				};
@@ -243,6 +246,28 @@
 				{/if}
 
 				{#if qrCodeDataURL}
+					<div
+						class="qr-color-inputs"
+						style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center;"
+					>
+						<label style="display: flex; align-items: center;" class="text-blue-500">
+							<span style="margin-right: 0.5rem;">Dark color</span>
+							<input
+								type="color"
+								bind:value={darkColor}
+								class="border-magenta-500 rounded-sm border"
+							/>
+						</label>
+						<label style="display: flex; align-items: center;" class="text-blue-500">
+							<span style="margin-right: 0.5rem;">Light color</span>
+							<input
+								type="color"
+								class="border-magenta-500 m-0 rounded-sm border p-0"
+								bind:value={lightColor}
+							/>
+						</label>
+					</div>
+
 					<Button.Root
 						onclick={downloadQRCode}
 						disabled={isGenerating}
