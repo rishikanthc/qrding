@@ -90,8 +90,8 @@
 					width: capturedSize, // Use captured size from the effect's scope
 					margin: 2,
 					color: {
-						dark: '#000000',
-						light: '#ffffff'
+						dark: '#7c3aed',
+						light: '#fffbe0'
 					},
 					errorCorrectionLevel: capturedErrorCorrectionLevel // Use captured ECL
 				};
@@ -109,16 +109,21 @@
 	});
 </script>
 
-<div class="flex min-h-screen items-center justify-center bg-white p-4 md:p-6 lg:p-8">
-	<div class="w-full max-w-[1080px] bg-white">
+<div class="flex min-h-screen items-center justify-center bg-gray-900 p-4 md:p-6 lg:p-8">
+	<div class="fixed top-0 left-0 bg-gray-900 p-4 font-[Megrim] text-4xl text-blue-400">QRding</div>
+	<div class="w-full max-w-[1080px] bg-gray-900">
 		<div class="flex flex-col items-center gap-8 lg:flex-row lg:items-center">
 			<!-- Left Section -->
 			<div class="w-full max-w-md space-y-6 lg:w-[350px] lg:flex-none">
 				<!-- Mode Selector -->
 				<div>
 					<Select.Root type="single" bind:value={selectedModeValue}>
+						<label for="template" class="mb-2 block text-sm font-medium text-blue-500"
+							>Template</label
+						>
 						<Select.Trigger
-							class="flex h-10 w-full items-center justify-between rounded-lg border border-black bg-white px-4 text-sm font-medium transition-colors hover:bg-gray-50"
+							id="template"
+							class="flex h-10 w-full items-center justify-between rounded-md bg-[#d9ff7a] px-4 text-sm font-medium shadow-sm transition-colors hover:bg-[#bede68]"
 						>
 							<span>{currentModeLabel}</span>
 							<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -133,14 +138,14 @@
 						</Select.Trigger>
 						<Select.Portal>
 							<Select.Content
-								class="z-50 overflow-hidden rounded-lg border border-black bg-white shadow-lg"
+								class="z-50 overflow-hidden rounded-lg border border-black bg-gray-700 text-gray-200 shadow-lg"
 								sideOffset={10}
 							>
 								<Select.Viewport class="p-1">
 									{#each modeOptions as option}
 										<Select.Item
 											value={option.value}
-											class="cursor-pointer rounded px-4 py-2 text-sm hover:bg-gray-100 data-[highlighted]:bg-gray-100"
+											class="cursor-pointer rounded px-4 py-2 text-sm hover:bg-gray-100 data-[highlighted]:bg-gray-800"
 										>
 											{#snippet children({ selected })}
 												{option.label}
@@ -179,8 +184,8 @@
 				<!-- Size Slider -->
 				<div class="space-y-3">
 					<div class="flex items-center justify-between">
-						<label class="text-sm font-medium">Size</label>
-						<span class="text-sm font-medium">{size}px</span>
+						<label class="text-sm font-medium text-blue-600">Size</label>
+						<span class="text-sm font-medium text-blue-400">{size}px</span>
 					</div>
 					<Slider.Root
 						bind:value={size}
@@ -191,9 +196,9 @@
 						class="relative flex h-5 w-full touch-none items-center select-none"
 					>
 						<span
-							class="relative h-2 w-full grow cursor-pointer overflow-hidden rounded-full bg-gray-200"
+							class="relative h-2 w-full grow cursor-pointer overflow-hidden rounded-full bg-gray-600"
 						>
-							<Slider.Range class="absolute h-full bg-black" />
+							<Slider.Range class="absolute h-full bg-blue-500" />
 						</span>
 						<Slider.Thumb
 							index={0}
@@ -241,7 +246,7 @@
 					<Button.Root
 						onclick={downloadQRCode}
 						disabled={isGenerating}
-						class="h-8 cursor-pointer rounded-lg border border-black bg-black px-6 text-sm font-medium text-white transition-colors hover:bg-gray-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+						class="h-10 cursor-pointer rounded-lg  bg-[#d9ff7a] px-6 text-sm font-medium text-gray-800 transition-colors hover:bg-[#bede68] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
 					>
 						Download Image
 					</Button.Root>

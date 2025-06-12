@@ -68,44 +68,49 @@
 
 <div class="space-y-4">
 	<div>
-		<label for="eventTitle" class="mb-2 block text-sm font-medium">Event Title*</label>
+		<label for="eventTitle" class="mb-2 block text-sm font-medium text-blue-600">Event Title*</label
+		>
 		<input
 			type="text"
 			id="eventTitle"
 			bind:value={title}
 			placeholder="e.g., Team Meeting"
-			class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+			class="h-10 w-full rounded-md border border-black bg-gray-700 px-4 text-sm text-gray-100 shadow-md focus:ring-2 focus:ring-black focus:outline-none"
 			required
 		/>
 	</div>
 	<div>
-		<label for="eventDTStart" class="mb-2 block text-sm font-medium">Start Date & Time*</label>
+		<label for="eventDTStart" class="mb-2 block text-sm font-medium text-blue-600"
+			>Start Date & Time*</label
+		>
 		<input
 			type="datetime-local"
 			id="eventDTStart"
 			bind:value={dtStart}
-			class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+			class="h-10 w-full rounded-md border border-black bg-gray-700 px-4 text-sm text-gray-100 shadow-md focus:ring-2 focus:ring-black focus:outline-none"
 			required
 		/>
 	</div>
 	<div>
-		<label for="eventDTEnd" class="mb-2 block text-sm font-medium">End Date & Time*</label>
+		<label for="eventDTEnd" class="mb-2 block text-sm font-medium text-blue-600"
+			>End Date & Time*</label
+		>
 		<input
 			type="datetime-local"
 			id="eventDTEnd"
 			bind:value={dtEnd}
-			class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+			class="h-10 w-full rounded-md border border-black bg-gray-700 px-4 text-sm text-gray-100 shadow-md focus:ring-2 focus:ring-black focus:outline-none"
 			required
 		/>
 	</div>
 	<div>
-		<label for="eventLocation" class="mb-2 block text-sm font-medium">Location</label>
+		<label for="eventLocation" class="mb-2 block text-sm font-medium text-blue-600">Location</label>
 		<input
 			type="text"
 			id="eventLocation"
 			bind:value={location}
 			placeholder="e.g., Conference Room 1"
-			class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+			class="h-10 w-full rounded-md border border-black bg-gray-700 px-4 text-sm text-gray-100 shadow-md focus:ring-2 focus:ring-black focus:outline-none"
 		/>
 	</div>
 	<p class="text-xs text-gray-600">* Mandatory fields. Browser will prompt for YYYY-MM-DDTHH:MM.</p>

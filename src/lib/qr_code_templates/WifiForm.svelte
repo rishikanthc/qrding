@@ -44,18 +44,20 @@
 
 <div class="space-y-4">
 	<div>
-		<label for="wifiSSID" class="mb-2 block text-sm font-medium">Network Name (SSID)*</label>
+		<label for="wifiSSID" class="mb-2 block text-sm font-medium text-blue-500"
+			>Network Name (SSID)*</label
+		>
 		<input
 			type="text"
 			id="wifiSSID"
 			bind:value={ssid}
 			placeholder="YourWiFiNetwork"
-			class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+			class="h-10 w-full rounded-sm bg-gray-700 px-4 text-sm text-gray-100 shadow-md focus:ring-2 focus:ring-black focus:outline-none"
 			required
 		/>
 	</div>
 	<div>
-		<label for="wifiPassword" class="mb-2 block text-sm font-medium"
+		<label for="wifiPassword" class="mb-2 block text-sm font-medium text-blue-500"
 			>Password {securityValue === 'nopass' ? '(Not Needed for Open Network)' : ''}</label
 		>
 		<input
@@ -63,9 +65,10 @@
 			id="wifiPassword"
 			bind:value={password}
 			placeholder={securityValue === 'nopass' ? '' : 'YourNetworkPassword'}
+			class="bg-gray-700 text-gray-100"
 			class:h-10={true}
 			class:w-full={true}
-			class:rounded-lg={true}
+			class:rounded-sm={true}
 			class:border={true}
 			class:border-black={true}
 			class:px-4={true}
@@ -79,10 +82,10 @@
 		/>
 	</div>
 	<div>
-		<label class="mb-2 block text-sm font-medium">Security Type</label>
+		<label class="mb-2 block text-sm font-medium text-blue-500">Security Type</label>
 		<Select.Root type="single" bind:value={securityValue}>
 			<Select.Trigger
-				class="flex h-10 w-full items-center justify-between rounded-lg border border-black bg-transparent px-4 py-2 text-sm whitespace-nowrap focus:ring-2 focus:ring-black focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+				class="flex h-10 w-full items-center justify-between rounded-sm border border-black bg-gray-700 px-4 py-2 text-sm whitespace-nowrap text-gray-100 shadow-md focus:ring-2 focus:ring-black focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
 				aria-label="Wi-Fi Security Type"
 			>
 				<span>{currentWifiSecurityLabel}</span>
@@ -134,9 +137,9 @@
 			type="checkbox"
 			id="wifiHidden"
 			bind:checked={isHidden}
-			class="h-4 w-4 rounded border-gray-300 text-black accent-black focus:ring-black"
+			class="h-4 w-4 rounded border-gray-300 text-gray-100 accent-black focus:ring-black"
 		/>
-		<label for="wifiHidden" class="text-sm font-medium">Hidden Network</label>
+		<label for="wifiHidden" class="text-sm font-medium text-gray-100">Hidden Network</label>
 	</div>
 	<p class="text-xs text-gray-600">* SSID is required to generate a functional Wi-Fi QR code.</p>
 </div>
