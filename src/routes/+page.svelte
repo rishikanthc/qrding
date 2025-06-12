@@ -24,6 +24,10 @@
 	let vCardCountry = $state('');
 	let vCardWebsite = $state('');
 	let vCardNote = $state('');
+	let eventTitle = $state('');
+	let eventDTStart = $state(''); // Expected format e.g., "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS"
+	let eventDTEnd = $state('');   // Expected format e.g., "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS"
+	let eventLocation = $state('');
 
 	let qrCodeDataURL = $state('');
 	let size = $state(256);
@@ -31,9 +35,10 @@
 	let isGenerating = $state(false);
 
 	const modeOptions = [
-		{ value: 'wifi', label: 'WiFi Network' },
-		{ value: 'text', label: 'Custom Text' },
-		{ value: 'vcard', label: 'Contact Card (vCard)' }
+		{ value: 'text', label: 'Text' },
+		{ value: 'wifi', label: 'Wi-Fi Network' },
+		{ value: 'vcard', label: 'Contact Card (VCard)' },
+		{ value: 'calendar', label: 'Calendar Event' }
 	];
 
 	const securityOptions = [
@@ -131,6 +136,61 @@
 		return `WIFI:T:${security};S:${ssid};P:${password};H:${hidden};;`;
 	}
 
+	// Generate Calendar Event (VEVENT) string
+	function generateCalendarEventString(title, dtStart, dtEnd, location) {
+		// Basic validation for mandatory fields
+		if (!title.trim() || !dtStart.trim() || !dtEnd.trim()) {
+			return '';
+		}
+
+		// Helper to format date-time strings from datetime-local input
+		// Input: YYYY-MM-DDTHH:MM -> Output: YYYYMMDDTHHMMSS (floating local time)
+		// Input: YYYY-MM-DD (if it were date only) -> Output: YYYYMMDD
+		const formatVEventDateTime = (dateTimeString) => {
+			if (!dateTimeString) return '';
+			let dt = dateTimeString; // e.g., "2023-10-26T10:30"
+			// Ensure seconds are present for DTSTART/DTEND if time is specified
+			// datetime-local input is YYYY-MM-DDTHH:MM. We need YYYYMMDDTHHMMSS.
+			if (dt.includes('T') && dt.match(/T\d{2}:\d{2}$/)) { 
+				dt += ':00'; // Appends seconds, making it YYYY-MM-DDTHH:MM:SS
+			}
+			// Remove all hyphens and colons, ensure T is preserved if present
+			return dt.replace(/[-:]/g, '').replace('T', 'T'); // Becomes YYYYMMDDTHHMMSS or YYYYMMDD
+		};
+
+		const getCurrentUTCTimestamp = () => {
+			const now = new Date();
+			return (
+				now.getUTCFullYear().toString() +
+				(now.getUTCMonth() + 1).toString().padStart(2, '0') +
+				now.getUTCDate().toString().padStart(2, '0') +
+				'T' +
+				now.getUTCHours().toString().padStart(2, '0') +
+				now.getUTCMinutes().toString().padStart(2, '0') +
+				now.getUTCSeconds().toString().padStart(2, '0') +
+				'Z'
+			);
+		};
+
+		const uid = `qrding-event-${Date.now()}@qrding.com`; // Basic unique ID
+
+		const veventParts = [
+			'BEGIN:VEVENT',
+			`UID:${uid}`,
+			`DTSTAMP:${getCurrentUTCTimestamp()}`,
+			`SUMMARY:${title}`,
+			`DTSTART:${formatVEventDateTime(dtStart)}`,
+			`DTEND:${formatVEventDateTime(dtEnd)}`
+		];
+
+		if (location.trim()) {
+			veventParts.push(`LOCATION:${location}`);
+		}
+
+		veventParts.push('END:VEVENT');
+		return veventParts.join('\n'); // Use actual newline characters for VEVENT standard
+	}
+
 	// Get the text to encode based on mode
 	function getTextToEncode(
 		p_modeValue,
@@ -150,7 +210,11 @@
 		pVCardZip,
 		pVCardCountry,
 		pVCardWebsite,
-		pVCardNote
+		pVCardNote,
+		pEventTitle,
+		pEventDTStart,
+		pEventDTEnd,
+		pEventLocation
 	) {
 		if (p_modeValue === 'wifi') {
 			if (!p_wifiSSID.trim()) return '';
@@ -170,6 +234,8 @@
 				pVCardWebsite,
 				pVCardNote
 			);
+		} else if (p_modeValue === 'calendar') {
+			return generateCalendarEventString(pEventTitle, pEventDTStart, pEventDTEnd, pEventLocation);
 		}
 		return p_customText; // This covers p_modeValue === 'text'
 	}
@@ -219,6 +285,12 @@
 		const capturedVCardWebsite = vCardWebsite;
 		const capturedVCardNote = vCardNote;
 
+		// Capture Calendar event details for the effect
+		const capturedEventTitle = eventTitle;
+		const capturedEventDTStart = eventDTStart;
+		const capturedEventDTEnd = eventDTEnd;
+		const capturedEventLocation = eventLocation;
+
 		const textToEncode = getTextToEncode(
 			capturedModeValue,
 			capturedWifiSSID,
@@ -237,7 +309,11 @@
 			capturedVCardZip,
 			capturedVCardCountry,
 			capturedVCardWebsite,
-			capturedVCardNote
+			capturedVCardNote,
+			capturedEventTitle,
+			capturedEventDTStart,
+			capturedEventDTEnd,
+			capturedEventLocation
 		);
 
 		// Use an Immediately Invoked Async Function Expression (IIAFE)
@@ -506,7 +582,54 @@
 							></textarea>
 						</div>
 					</div>
-				{/if}
+				    {:else if selectedModeValue === 'calendar'}
+				      <div class="space-y-4">
+				        <div>
+				          <label for="eventTitle" class="mb-2 block text-sm font-medium">Event Title*</label>
+				          <input
+				            type="text"
+				            id="eventTitle"
+				            bind:value={eventTitle}
+				            placeholder="e.g., Team Meeting"
+				            class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+				            required
+				          />
+				        </div>
+				        <div>
+				          <label for="eventDTStart" class="mb-2 block text-sm font-medium">Start Date & Time*</label>
+				          <input
+				            type="datetime-local"
+				            id="eventDTStart"
+				            bind:value={eventDTStart}
+				            class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+				            required
+				          />
+				        </div>
+				        <div>
+				          <label for="eventDTEnd" class="mb-2 block text-sm font-medium">End Date & Time*</label>
+				          <input
+				            type="datetime-local"
+				            id="eventDTEnd"
+				            bind:value={eventDTEnd}
+				            class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+				            required
+				          />
+				        </div>
+				        <div>
+				          <label for="eventLocation" class="mb-2 block text-sm font-medium">Location</label>
+				          <input
+				            type="text"
+				            id="eventLocation"
+				            bind:value={eventLocation}
+				            placeholder="e.g., Conference Room 1"
+				            class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
+				          />
+				        </div>
+				        <p class="text-xs text-gray-600">
+				          * Mandatory fields. Browser will prompt for YYYY-MM-DDTHH:MM.
+				        </p>
+				      </div>
+				    {/if}
 
 				<!-- Size Slider -->
 				<div class="space-y-3">
