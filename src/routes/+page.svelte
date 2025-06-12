@@ -3,31 +3,16 @@
 	import { Button } from 'bits-ui';
 	import { Slider } from 'bits-ui';
 	import QRCode from 'qrcode';
+	import TextForm from '$lib/qr_code_templates/TextForm.svelte';
+	import WifiForm from '$lib/qr_code_templates/WifiForm.svelte';
+	import VCardForm from '$lib/qr_code_templates/VCardForm.svelte';
+	import CalendarEventForm from '$lib/qr_code_templates/CalendarEventForm.svelte';
 
 	let selectedModeValue = $state('wifi');
-	let wifiSSID = $state('');
-	let wifiPassword = $state('');
-	let selectedWifiSecurityValue = $state('WPA');
-	let wifiHidden = $state(false);
-	let customText = $state('');
 
-	// vCard Contact Details
-	let vCardName = $state(''); // Mandatory
-	let vCardPhone = $state('');
-	let vCardEmail = $state('');
-	let vCardOrg = $state('');
-	let vCardTitle = $state('');
-	let vCardStreet = $state('');
-	let vCardCity = $state('');
-	let vCardState = $state(''); // Region/Province
-	let vCardZip = $state(''); // Postal Code
-	let vCardCountry = $state('');
-	let vCardWebsite = $state('');
-	let vCardNote = $state('');
-	let eventTitle = $state('');
-	let eventDTStart = $state(''); // Expected format e.g., "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS"
-	let eventDTEnd = $state('');   // Expected format e.g., "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS"
-	let eventLocation = $state('');
+	// Calendar Event Details state variables are now moved to CalendarEventForm.svelte
+	let activeFormOutput = $state('');
+	let activeFilenameHint = $state('');
 
 	let qrCodeDataURL = $state('');
 	let size = $state(256);
@@ -41,204 +26,13 @@
 		{ value: 'calendar', label: 'Calendar Event' }
 	];
 
-	const securityOptions = [
-		{ value: 'WPA', label: 'WPA/WPA2' },
-		{ value: 'WEP', label: 'WEP' },
-		{ value: 'nopass', label: 'Open' }
-	];
-
 	const currentModeLabel = $derived(
 		modeOptions.find((opt) => opt.value === selectedModeValue)?.label
 	);
-	const currentWifiSecurityLabel = $derived(
-		securityOptions.find((opt) => opt.value === selectedWifiSecurityValue)?.label
-	);
 
-	// Helper to escape characters for vCard strings
-	function escapeVCardString(str) {
-		if (!str) return '';
-		return str
-			.replace(/\\/g, '\\\\')
-			.replace(/,/g, '\\,')
-			.replace(/;/g, '\\;')
-			.replace(/\n/g, '\\n');
-	}
-
-	// Generate vCard string
-	function generateVCardString(
-		name,
-		phone,
-		email,
-		org,
-		title,
-		street,
-		city,
-		v_state,
-		zip,
-		country,
-		website,
-		note
-	) {
-		const escName = escapeVCardString(name);
-		const escPhone = escapeVCardString(phone);
-		const escEmail = escapeVCardString(email);
-		const escOrg = escapeVCardString(org);
-		const escTitle = escapeVCardString(title);
-		const escStreet = escapeVCardString(street);
-		const escCity = escapeVCardString(city);
-		const escVState = escapeVCardString(v_state);
-		const escZip = escapeVCardString(zip);
-		const escCountry = escapeVCardString(country);
-		const escWebsite = escapeVCardString(website);
-		const escNote = escapeVCardString(note);
-
-		// Mandatory fields check: Name is always mandatory.
-		// Additionally, at least one of Phone, Email, or any part of an Address must be present.
-		if (!name.trim()) return '';
-		const hasContactMethod =
-			phone.trim() ||
-			email.trim() ||
-			street.trim() ||
-			city.trim() ||
-			v_state.trim() ||
-			zip.trim() ||
-			country.trim();
-		if (!hasContactMethod) return '';
-
-		let vCard = 'BEGIN:VCARD\nVERSION:3.0\n';
-		vCard += `N:${escName};;;;\n`; // Simplified: Full Name as Last Name part for N property
-		vCard += `FN:${escName}\n`;
-
-		if (escOrg) vCard += `ORG:${escOrg}\n`;
-		if (escTitle) vCard += `TITLE:${escTitle}\n`;
-		if (escPhone) vCard += `TEL;TYPE=CELL:${escPhone}\n`; // Assuming CELL, can be made configurable
-		if (escEmail) vCard += `EMAIL:${escEmail}\n`;
-
-		// Address: Only add ADR field if at least one address component is present
-		if (escStreet || escCity || escVState || escZip || escCountry) {
-			vCard += `ADR;TYPE=HOME:;;${escStreet};${escCity};${escVState};${escZip};${escCountry}\n`;
-		}
-
-		if (escWebsite) vCard += `URL:${escWebsite}\n`;
-		if (escNote) vCard += `NOTE:${escNote}\n`;
-
-		vCard += 'END:VCARD';
-		return vCard;
-	}
-
-	// Generate WiFi QR code string
-	function generateWiFiString(p_ssid, p_password, p_securityValue, p_hiddenBool) {
-		const security = p_securityValue;
-		const ssid = p_ssid.replace(/[\\;,:]/g, '\\$&');
-		const password = p_password.replace(/[\\;,:]/g, '\\$&');
-		const hidden = p_hiddenBool ? 'true' : 'false';
-
-		return `WIFI:T:${security};S:${ssid};P:${password};H:${hidden};;`;
-	}
-
-	// Generate Calendar Event (VEVENT) string
-	function generateCalendarEventString(title, dtStart, dtEnd, location) {
-		// Basic validation for mandatory fields
-		if (!title.trim() || !dtStart.trim() || !dtEnd.trim()) {
-			return '';
-		}
-
-		// Helper to format date-time strings from datetime-local input
-		// Input: YYYY-MM-DDTHH:MM -> Output: YYYYMMDDTHHMMSS (floating local time)
-		// Input: YYYY-MM-DD (if it were date only) -> Output: YYYYMMDD
-		const formatVEventDateTime = (dateTimeString) => {
-			if (!dateTimeString) return '';
-			let dt = dateTimeString; // e.g., "2023-10-26T10:30"
-			// Ensure seconds are present for DTSTART/DTEND if time is specified
-			// datetime-local input is YYYY-MM-DDTHH:MM. We need YYYYMMDDTHHMMSS.
-			if (dt.includes('T') && dt.match(/T\d{2}:\d{2}$/)) { 
-				dt += ':00'; // Appends seconds, making it YYYY-MM-DDTHH:MM:SS
-			}
-			// Remove all hyphens and colons, ensure T is preserved if present
-			return dt.replace(/[-:]/g, '').replace('T', 'T'); // Becomes YYYYMMDDTHHMMSS or YYYYMMDD
-		};
-
-		const getCurrentUTCTimestamp = () => {
-			const now = new Date();
-			return (
-				now.getUTCFullYear().toString() +
-				(now.getUTCMonth() + 1).toString().padStart(2, '0') +
-				now.getUTCDate().toString().padStart(2, '0') +
-				'T' +
-				now.getUTCHours().toString().padStart(2, '0') +
-				now.getUTCMinutes().toString().padStart(2, '0') +
-				now.getUTCSeconds().toString().padStart(2, '0') +
-				'Z'
-			);
-		};
-
-		const uid = `qrding-event-${Date.now()}@qrding.com`; // Basic unique ID
-
-		const veventParts = [
-			'BEGIN:VEVENT',
-			`UID:${uid}`,
-			`DTSTAMP:${getCurrentUTCTimestamp()}`,
-			`SUMMARY:${title}`,
-			`DTSTART:${formatVEventDateTime(dtStart)}`,
-			`DTEND:${formatVEventDateTime(dtEnd)}`
-		];
-
-		if (location.trim()) {
-			veventParts.push(`LOCATION:${location}`);
-		}
-
-		veventParts.push('END:VEVENT');
-		return veventParts.join('\n'); // Use actual newline characters for VEVENT standard
-	}
-
-	// Get the text to encode based on mode
-	function getTextToEncode(
-		p_modeValue,
-		p_wifiSSID,
-		p_wifiPassword,
-		p_wifiSecurityValue,
-		p_wifiHiddenBool,
-		p_customText,
-		pVCardName,
-		pVCardPhone,
-		pVCardEmail,
-		pVCardOrg,
-		pVCardTitle,
-		pVCardStreet,
-		pVCardCity,
-		pVCardState,
-		pVCardZip,
-		pVCardCountry,
-		pVCardWebsite,
-		pVCardNote,
-		pEventTitle,
-		pEventDTStart,
-		pEventDTEnd,
-		pEventLocation
-	) {
-		if (p_modeValue === 'wifi') {
-			if (!p_wifiSSID.trim()) return '';
-			return generateWiFiString(p_wifiSSID, p_wifiPassword, p_wifiSecurityValue, p_wifiHiddenBool);
-		} else if (p_modeValue === 'vcard') {
-			return generateVCardString(
-				pVCardName,
-				pVCardPhone,
-				pVCardEmail,
-				pVCardOrg,
-				pVCardTitle,
-				pVCardStreet,
-				pVCardCity,
-				pVCardState,
-				pVCardZip,
-				pVCardCountry,
-				pVCardWebsite,
-				pVCardNote
-			);
-		} else if (p_modeValue === 'calendar') {
-			return generateCalendarEventString(pEventTitle, pEventDTStart, pEventDTEnd, pEventLocation);
-		}
-		return p_customText; // This covers p_modeValue === 'text'
-	}
+	// All generate...String and getTextToEncode functions are removed
+	// as their logic is now within their respective child components.
+	// Child components will update `activeFormOutput`.
 
 	// Download QR code as image
 	function downloadQRCode() {
@@ -248,11 +42,10 @@
 		// Make filename more unique to try and bust browser cache for downloads
 		const timestamp = Date.now();
 		let baseFilename = 'qrcode';
-		if (selectedModeValue === 'wifi') {
-			baseFilename = `wifi-${wifiSSID || 'network'}`;
-		} else if (selectedModeValue === 'vcard') {
-			baseFilename = `contact-${vCardName.replace(/\s+/g, '_') || 'details'}`;
+		if (activeFilenameHint) {
+			baseFilename = activeFilenameHint.replace(/[^\\w-]/g, '_');
 		}
+		// All mode-specific filename logic removed, activeFilenameHint handles this.
 		// Append current size and timestamp to the filename
 		link.download = `${baseFilename}-${size}-${timestamp}.png`;
 		link.href = qrCodeDataURL;
@@ -263,58 +56,22 @@
 	$effect(() => {
 		// Capture reactive values from component state for this specific effect run
 		const capturedModeValue = selectedModeValue;
-		const capturedWifiSSID = wifiSSID;
-		const capturedWifiPassword = wifiPassword;
-		const capturedWifiSecurityValue = selectedWifiSecurityValue;
-		const capturedWifiHidden = wifiHidden;
-		const capturedCustomText = customText;
+		// WiFi state captures removed as WifiForm manages its own state
+		// const capturedCustomText = customText; // Removed, TextForm output used directly
 		const capturedSize = size;
 		const capturedErrorCorrectionLevel = errorCorrectionLevel;
+		// const capturedSimpleTestInput = simpleTestInput;
 
-		// Capture vCard details for the effect
-		const capturedVCardName = vCardName;
-		const capturedVCardPhone = vCardPhone;
-		const capturedVCardEmail = vCardEmail;
-		const capturedVCardOrg = vCardOrg;
-		const capturedVCardTitle = vCardTitle;
-		const capturedVCardStreet = vCardStreet;
-		const capturedVCardCity = vCardCity;
-		const capturedVCardState = vCardState;
-		const capturedVCardZip = vCardZip;
-		const capturedVCardCountry = vCardCountry;
-		const capturedVCardWebsite = vCardWebsite;
-		const capturedVCardNote = vCardNote;
+		// console.log('Page - capturedSimpleTestInput:', capturedSimpleTestInput);
+		// console.log('Page - capturedSize for slider:', capturedSize);
+		// console.log('Page - activeFormOutput from child:', activeFormOutput);
 
-		// Capture Calendar event details for the effect
-		const capturedEventTitle = eventTitle;
-		const capturedEventDTStart = eventDTStart;
-		const capturedEventDTEnd = eventDTEnd;
-		const capturedEventLocation = eventLocation;
+		// vCard details capture removed, VCardForm manages its own state
+		// Calendar event details capture removed, CalendarEventForm manages its own state
 
-		const textToEncode = getTextToEncode(
-			capturedModeValue,
-			capturedWifiSSID,
-			capturedWifiPassword,
-			capturedWifiSecurityValue,
-			capturedWifiHidden,
-			capturedCustomText,
-			capturedVCardName,
-			capturedVCardPhone,
-			capturedVCardEmail,
-			capturedVCardOrg,
-			capturedVCardTitle,
-			capturedVCardStreet,
-			capturedVCardCity,
-			capturedVCardState,
-			capturedVCardZip,
-			capturedVCardCountry,
-			capturedVCardWebsite,
-			capturedVCardNote,
-			capturedEventTitle,
-			capturedEventDTStart,
-			capturedEventDTEnd,
-			capturedEventLocation
-		);
+		// All form-specific data is now in activeFormOutput, provided by the active child component.
+		// The getTextToEncode function is removed.
+		const textToEncode = activeFormOutput;
 
 		// Use an Immediately Invoked Async Function Expression (IIAFE)
 		// to handle the asynchronous QR code generation.
@@ -398,238 +155,26 @@
 
 				<!-- Input Fields -->
 				{#if selectedModeValue === 'wifi'}
-					<div class="space-y-4">
-						<div>
-							<label class="mb-2 block text-sm font-medium">Network Name</label>
-							<input
-								type="text"
-								bind:value={wifiSSID}
-								placeholder="Enter SSID"
-								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-
-						<div>
-							<label class="mb-2 block text-sm font-medium">Password</label>
-							<input
-								type="password"
-								bind:value={wifiPassword}
-								placeholder="Enter password"
-								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-
-						<div>
-							<label class="mb-2 block text-sm font-medium">Security</label>
-							<Select.Root type="single" bind:value={selectedWifiSecurityValue}>
-								<Select.Trigger
-									class="flex h-12 w-full items-center justify-between rounded-lg border border-black bg-white px-4 text-sm transition-colors hover:bg-gray-50"
-								>
-									<span>{currentWifiSecurityLabel}</span>
-									<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-										<path
-											d="M4 6L8 10L12 6"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										/>
-									</svg>
-								</Select.Trigger>
-								<Select.Portal>
-									<Select.Content
-										class="z-50 overflow-hidden rounded-lg border border-black bg-white shadow-lg"
-										sideOffset={8}
-									>
-										<Select.Viewport class="p-1">
-											{#each securityOptions as option}
-												<Select.Item
-													value={option.value}
-													class="cursor-pointer rounded px-4 py-2 text-sm hover:bg-gray-100 data-[highlighted]:bg-gray-100"
-												>
-													{#snippet children({ selected })}
-														{option.label}
-													{/snippet}
-												</Select.Item>
-											{/each}
-										</Select.Viewport>
-									</Select.Content>
-								</Select.Portal>
-							</Select.Root>
-						</div>
-
-						<div class="flex items-center space-x-3">
-							<input
-								type="checkbox"
-								id="hidden"
-								bind:checked={wifiHidden}
-								class="h-4 w-4 rounded border-black text-black focus:ring-black"
-							/>
-							<label for="hidden" class="text-sm font-medium">Hidden Network</label>
-						</div>
-					</div>
+					<WifiForm
+						bind:generatedString={activeFormOutput}
+						bind:filenameHint={activeFilenameHint}
+					/>
 				{:else if selectedModeValue === 'text'}
-					<div>
-						<label class="mb-2 block text-sm font-medium">Custom Text</label>
-						<textarea
-							bind:value={customText}
-							placeholder="Enter text or URL"
-							rows={8}
-							class="w-full resize-none rounded-lg border border-black px-4 py-3 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-						></textarea>
-					</div>
+					<TextForm
+						bind:generatedString={activeFormOutput}
+						bind:filenameHint={activeFilenameHint}
+					/>
 				{:else if selectedModeValue === 'vcard'}
-					<div class="space-y-4">
-						<p class="text-xs text-gray-600">
-							Name and at least one of Phone, Email, or Address is required.
-						</p>
-						<div>
-							<label class="mb-2 block text-sm font-medium">Full Name *</label>
-							<input
-								type="text"
-								bind:value={vCardName}
-								placeholder="John Doe"
-								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-						<div>
-							<label class="mb-2 block text-sm font-medium">Phone</label>
-							<input
-								type="tel"
-								bind:value={vCardPhone}
-								placeholder="+1234567890"
-								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-						<div>
-							<label class="mb-2 block text-sm font-medium">Email</label>
-							<input
-								type="email"
-								bind:value={vCardEmail}
-								placeholder="john.doe@example.com"
-								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-						<div>
-							<label class="mb-2 block text-sm font-medium">Organization</label>
-							<input
-								type="text"
-								bind:value={vCardOrg}
-								placeholder="ACME Corp"
-								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-						<div>
-							<label class="mb-2 block text-sm font-medium">Job Title</label>
-							<input
-								type="text"
-								bind:value={vCardTitle}
-								placeholder="Software Engineer"
-								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-						<div class="pt-2">
-							<label class="mb-2 block text-sm font-medium">Address</label>
-							<input
-								type="text"
-								bind:value={vCardStreet}
-								placeholder="Street Address (e.g., 123 Main St)"
-								class="mb-2 h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-							<input
-								type="text"
-								bind:value={vCardCity}
-								placeholder="City (e.g., Anytown)"
-								class="mb-2 h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-							<div class="grid grid-cols-2 gap-x-2">
-								<input
-									type="text"
-									bind:value={vCardState}
-									placeholder="State/Province"
-									class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-								/>
-								<input
-									type="text"
-									bind:value={vCardZip}
-									placeholder="ZIP/Postal Code"
-									class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-								/>
-							</div>
-							<input
-								type="text"
-								bind:value={vCardCountry}
-								placeholder="Country (e.g., USA)"
-								class="mt-2 h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-						<div>
-							<label class="mb-2 block text-sm font-medium">Website</label>
-							<input
-								type="url"
-								bind:value={vCardWebsite}
-								placeholder="https://example.com"
-								class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							/>
-						</div>
-						<div>
-							<label class="mb-2 block text-sm font-medium">Note</label>
-							<textarea
-								bind:value={vCardNote}
-								placeholder="Additional notes"
-								rows={3}
-								class="w-full resize-none rounded-lg border border-black px-4 py-3 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-							></textarea>
-						</div>
-					</div>
-				    {:else if selectedModeValue === 'calendar'}
-				      <div class="space-y-4">
-				        <div>
-				          <label for="eventTitle" class="mb-2 block text-sm font-medium">Event Title*</label>
-				          <input
-				            type="text"
-				            id="eventTitle"
-				            bind:value={eventTitle}
-				            placeholder="e.g., Team Meeting"
-				            class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-				            required
-				          />
-				        </div>
-				        <div>
-				          <label for="eventDTStart" class="mb-2 block text-sm font-medium">Start Date & Time*</label>
-				          <input
-				            type="datetime-local"
-				            id="eventDTStart"
-				            bind:value={eventDTStart}
-				            class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-				            required
-				          />
-				        </div>
-				        <div>
-				          <label for="eventDTEnd" class="mb-2 block text-sm font-medium">End Date & Time*</label>
-				          <input
-				            type="datetime-local"
-				            id="eventDTEnd"
-				            bind:value={eventDTEnd}
-				            class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-				            required
-				          />
-				        </div>
-				        <div>
-				          <label for="eventLocation" class="mb-2 block text-sm font-medium">Location</label>
-				          <input
-				            type="text"
-				            id="eventLocation"
-				            bind:value={eventLocation}
-				            placeholder="e.g., Conference Room 1"
-				            class="h-10 w-full rounded-lg border border-black px-4 text-sm focus:ring-2 focus:ring-black focus:outline-none"
-				          />
-				        </div>
-				        <p class="text-xs text-gray-600">
-				          * Mandatory fields. Browser will prompt for YYYY-MM-DDTHH:MM.
-				        </p>
-				      </div>
-				    {/if}
+					<VCardForm
+						bind:generatedString={activeFormOutput}
+						bind:filenameHint={activeFilenameHint}
+					/>
+				{:else if selectedModeValue === 'calendar'}
+					<CalendarEventForm
+						bind:generatedString={activeFormOutput}
+						bind:filenameHint={activeFilenameHint}
+					/>
+				{/if}
 
 				<!-- Size Slider -->
 				<div class="space-y-3">
