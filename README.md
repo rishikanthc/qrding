@@ -11,7 +11,9 @@ QRding is a simple self-hosted QR code generator. It includes templates for crea
 * Customize size of QR code image
 * Customize color of QR codes
 
-### Screenshots
+### Screenshots and Demo
+
+A live version is available at https://qrding.app
 
 ![Screenshot 1 - WiFi credentials](screenshots/wifi.png)
 
