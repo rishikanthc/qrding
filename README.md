@@ -11,6 +11,12 @@ QRding is a simple self-hosted QR code generator. It includes templates for crea
 * Customize size of QR code image
 * Customize color of QR codes
 
+### Screenshots
+
+![Screenshot 1 - WiFi credentials](screenshots/wifi.png)
+
+![Screenshot 2 - Contact card](screenshots/contact-card.png)
+
 ## Installation
 
 QRding is available as a docker image and can be deployed with the docker-compose provided below.
@@ -61,7 +67,7 @@ I highly recommend getting a label maker to print out QR codes and stick them on
     * **Plant & Pet Care Scheduling**: QR on each plant’s pot or pet’s food bin: scan to log watering or feeding. If no scan happens after the plant’s ideal watering interval (e.g. 7 days) or pet’s mealtime window, your smart home assistant reminds you.
     * **On-Demand How-To Guides**: Affix QR codes on appliances or furniture. Scanning the code launches the PDF manual.
     * **Vehicle & Machinery Maintenance Logs**: Under the hood or on factory equipment: scan QR to instantly log an oil change, safety inspection, or filter replacement. The system then auto-schedules the next service reminder based on mileage or hours run.
-    * **Inventory management**: QR codes on pantry items connect to your home-inventory app. Scanning the last bag of flour or coffee bean container both logs the “out-of-stock” event and fires off an order to your preferred grocery service.
+    * **Inventory management**: QR codes on pantry items connect to your home-inventory app. Scanning the last bag of flour or coffee bean container logs the “out-of-stock” event.
 
 # Contributing
 
