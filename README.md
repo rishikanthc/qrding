@@ -28,7 +28,7 @@ version: '3.8'
 
 services:
   qrding:
-    image: ghcr.io/rishikanthc/qrding:v0.1.0
+    image: ghcr.io/rishikanthc/qrding:latest
     container_name: qrding
     ports:
       - "3000:3000"
