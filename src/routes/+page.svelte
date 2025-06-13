@@ -8,19 +8,23 @@
 	import VCardForm from '$lib/qr_code_templates/VCardForm.svelte';
 	import CalendarEventForm from '$lib/qr_code_templates/CalendarEventForm.svelte';
 
-	let selectedModeValue = $state('wifi');
+	// Constants for canvas rendering
+	const CANVAS_QR_PADDING = 10; // Padding around the QR code graphic on the canvas
+	const CANVAS_TITLE_FONT_SIZE = 20; // Font size for the title
+	const CANVAS_TITLE_AREA_VERTICAL_PADDING = 5; // Vertical padding above and below the title text (each side)
 
-	// Calendar Event Details state variables are now moved to CalendarEventForm.svelte
+	let selectedModeValue = $state('wifi');
+	let qrTitle = $state('');
 	let activeFormOutput = $state('');
 	let activeFilenameHint = $state('');
 
 	let qrCodeDataURL = $state('');
-	let size = $state(256);
+	let size = $state(256); // This is the size of the QR code graphic itself
 	let errorCorrectionLevel = $state('M');
 	let isGenerating = $state(false);
 
-	let darkColor = $state('#000000'); // default black
-	let lightColor = $state('#ffffff'); // default white
+	let darkColor = $state('#000000');
+	let lightColor = $state('#ffffff');
 
 	const modeOptions = [
 		{ value: 'text', label: 'Text' },
@@ -33,78 +37,113 @@
 		modeOptions.find((opt) => opt.value === selectedModeValue)?.label
 	);
 
-	// All generate...String and getTextToEncode functions are removed
-	// as their logic is now within their respective child components.
-	// Child components will update `activeFormOutput`.
+	// Derived values for UI display dimensions, reacting to `size` and `qrTitle`
+	let titleUiExtraHeight = $derived(
+		qrTitle.trim() ? CANVAS_TITLE_FONT_SIZE + CANVAS_TITLE_AREA_VERTICAL_PADDING * 2 : 0
+	);
+	// Width of the generated image (canvas)
+	let qrImageActualWidth = $derived(size + CANVAS_QR_PADDING * 2);
+	// Height of the generated image (canvas)
+	let qrImageActualHeight = $derived(size + CANVAS_QR_PADDING * 2 + titleUiExtraHeight);
 
-	// Download QR code as image
 	function downloadQRCode() {
 		if (!qrCodeDataURL) return;
 
 		const link = document.createElement('a');
-		// Make filename more unique to try and bust browser cache for downloads
 		const timestamp = Date.now();
 		let baseFilename = 'qrcode';
-		if (activeFilenameHint) {
-			baseFilename = activeFilenameHint.replace(/[^\\w-]/g, '_');
+
+		const titleTrimmed = qrTitle.trim();
+		if (titleTrimmed) {
+			baseFilename = titleTrimmed.replace(/[^-\w\s]/g, '').replace(/\s+/g, '_');
+		} else if (activeFilenameHint) {
+			baseFilename = activeFilenameHint.replace(/[^-\w\s]/g, '').replace(/\s+/g, '_');
 		}
-		// All mode-specific filename logic removed, activeFilenameHint handles this.
-		// Append current size and timestamp to the filename
+
 		link.download = `${baseFilename}-${size}-${timestamp}.png`;
 		link.href = qrCodeDataURL;
 		link.click();
 	}
 
-	// Auto-generate QR code when inputs change
 	$effect(() => {
-		// Capture reactive values from component state for this specific effect run
-		const capturedModeValue = selectedModeValue;
-		// WiFi state captures removed as WifiForm manages its own state
-		// const capturedCustomText = customText; // Removed, TextForm output used directly
 		const capturedSize = size;
 		const capturedErrorCorrectionLevel = errorCorrectionLevel;
-		// const capturedSimpleTestInput = simpleTestInput;
-
-		// console.log('Page - capturedSimpleTestInput:', capturedSimpleTestInput);
-		// console.log('Page - capturedSize for slider:', capturedSize);
-		// console.log('Page - activeFormOutput from child:', activeFormOutput);
-
-		// vCard details capture removed, VCardForm manages its own state
-		// Calendar event details capture removed, CalendarEventForm manages its own state
-
-		// All form-specific data is now in activeFormOutput, provided by the active child component.
-		// The getTextToEncode function is removed.
 		const textToEncode = activeFormOutput;
+		const capturedQrTitle = qrTitle;
+		const capturedDarkColor = darkColor;
+		const capturedLightColor = lightColor;
 
-		// Use an Immediately Invoked Async Function Expression (IIAFE)
-		// to handle the asynchronous QR code generation.
 		(async () => {
 			if (!textToEncode.trim()) {
 				qrCodeDataURL = '';
-				// isGenerating should be false if we return early and no generation happens.
-				// However, isGenerating is set to true only if we proceed.
 				return;
 			}
 
 			isGenerating = true;
 			try {
-				// QRCode is now imported statically at the top
-				const options = {
-					width: capturedSize, // Use captured size from the effect's scope
-					margin: 2,
+				const qrOptions = {
+					width: capturedSize,
+					margin: 0, // We handle padding on the canvas
 					color: {
-						dark: darkColor,
-						light: lightColor
+						dark: capturedDarkColor,
+						light: '#00000000' // Transparent light color for QR, canvas bg will be lightColor
 					},
-					errorCorrectionLevel: capturedErrorCorrectionLevel // Use captured ECL
+					errorCorrectionLevel: capturedErrorCorrectionLevel
 				};
-				// Assign to a temporary variable first to ensure the await completes
-				// before updating the reactive state.
-				const dataUrl = await QRCode.toDataURL(textToEncode, options);
-				qrCodeDataURL = dataUrl;
+				// Generate QR code as a data URL (this is the QR pattern only)
+				const rawQrDataUrl = await QRCode.toDataURL(textToEncode, qrOptions);
+
+				// Draw QR and title onto a new canvas
+				await new Promise((resolve, reject) => {
+					const img = new Image();
+					img.onload = () => {
+						const canvas = document.createElement('canvas');
+						const ctx = canvas.getContext('2d');
+						const titleText = capturedQrTitle.trim();
+
+						const titleAreaHeightOnCanvas = titleText
+							? CANVAS_TITLE_FONT_SIZE + CANVAS_TITLE_AREA_VERTICAL_PADDING * 2
+							: 0;
+
+						canvas.width = capturedSize + CANVAS_QR_PADDING * 2;
+						canvas.height = capturedSize + CANVAS_QR_PADDING * 2 + titleAreaHeightOnCanvas;
+
+						// Fill canvas background with the chosen light color
+						ctx.fillStyle = capturedLightColor;
+						ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+						// Draw QR code image onto the canvas
+						ctx.drawImage(img, CANVAS_QR_PADDING, CANVAS_QR_PADDING, capturedSize, capturedSize);
+
+						// If title is provided, draw it below the QR code
+						if (titleText) {
+							ctx.fillStyle = capturedDarkColor; // Title text color
+							ctx.font = `${CANVAS_TITLE_FONT_SIZE}px Arial`; // Consider making font family configurable
+							ctx.textAlign = 'center';
+							ctx.textBaseline = 'top'; // Align the top of the text to the Y coordinate
+
+							const titleTextY =
+								CANVAS_QR_PADDING + // Top padding for QR on canvas
+								capturedSize + // QR graphic height
+								CANVAS_TITLE_AREA_VERTICAL_PADDING; // Padding above title text
+
+							ctx.fillText(titleText, canvas.width / 2, titleTextY);
+						}
+
+						// Update reactive state with the new Data URL from canvas
+						qrCodeDataURL = canvas.toDataURL('image/png');
+						resolve();
+					};
+					img.onerror = (errEvent) => {
+						console.error('Error loading QR code image for canvas drawing:', errEvent);
+						qrCodeDataURL = ''; // Clear QR code on error
+						reject(new Error('Failed to load QR image onto canvas.'));
+					};
+					img.src = rawQrDataUrl;
+				});
 			} catch (error) {
-				console.error('Error generating QR code:', error);
-				qrCodeDataURL = ''; // Clear QR code on error
+				console.error('Error in QR generation pipeline:', error);
+				qrCodeDataURL = '';
 			} finally {
 				isGenerating = false;
 			}
@@ -120,10 +159,9 @@
 			<div class="w-full max-w-md space-y-6 lg:w-[350px] lg:flex-none">
 				<!-- Mode Selector -->
 				<div>
+					<label for="template" class="mb-2 block text-sm font-medium text-blue-500">Template</label
+					>
 					<Select.Root type="single" bind:value={selectedModeValue}>
-						<label for="template" class="mb-2 block text-sm font-medium text-blue-500"
-							>Template</label
-						>
 						<Select.Trigger
 							id="template"
 							class="flex h-10 w-full items-center justify-between rounded-md bg-[#d9ff7a] px-4 text-sm font-medium shadow-sm transition-colors hover:bg-[#bede68]"
@@ -161,7 +199,21 @@
 					</Select.Root>
 				</div>
 
-				<!-- Input Fields -->
+				<!-- QR Code Title Input -->
+				<div>
+					<label for="qrTitle" class="mb-2 block text-sm font-medium text-blue-500"
+						>QR Code Title (Optional)</label
+					>
+					<input
+						type="text"
+						id="qrTitle"
+						bind:value={qrTitle}
+						class="block w-full rounded-md border-gray-600 bg-gray-700 p-2.5 text-sm text-white placeholder-gray-400 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+						placeholder="Enter title (displays on image)"
+					/>
+				</div>
+
+				<!-- Input Fields based on Mode -->
 				{#if selectedModeValue === 'wifi'}
 					<WifiForm
 						bind:generatedString={activeFormOutput}
@@ -187,7 +239,7 @@
 				<!-- Size Slider -->
 				<div class="space-y-3">
 					<div class="flex items-center justify-between">
-						<label class="text-sm font-medium text-blue-600">Size</label>
+						<label class="text-sm font-medium text-blue-600">QR Size</label>
 						<span class="text-sm font-medium text-blue-400">{size}px</span>
 					</div>
 					<Slider.Root
@@ -211,67 +263,80 @@
 				</div>
 			</div>
 
-			<!-- Right Section -->
+			<!-- Right Section: QR Code Display and Actions -->
 			<div
 				class="mx-auto flex w-full max-w-[584px] flex-col items-center justify-center space-y-6 lg:w-auto lg:flex-none"
 			>
+				<!-- QR Code Display Area: Loading, Image, or Placeholder -->
+				<!-- The outer div's size is determined by qrImageActualWidth/Height + its own padding (p-4 = 1rem = 16px, so 32px total) -->
 				{#if isGenerating}
 					<div
-						class="mx-auto flex w-full max-w-full items-center justify-center rounded-lg border border-black p-4"
-						style="width: {size + 32}px; height: {size + 32}px;"
+						class="mx-auto flex items-center justify-center rounded-lg border border-gray-500 p-4"
+						style="width: {qrImageActualWidth + 32}px; height: {qrImageActualHeight + 32}px;"
 					>
 						<div
-							class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-black"
+							class="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"
 						></div>
 					</div>
 				{:else if qrCodeDataURL}
 					<div
-						class="mx-auto w-full max-w-full rounded-lg border border-black p-4"
-						style="width: {size + 32}px; height: {size + 32}px;"
+						class="mx-auto rounded-lg border border-gray-600 bg-gray-800 p-4 shadow-lg"
+						style="width: {qrImageActualWidth + 32}px; height: {qrImageActualHeight + 32}px;"
 					>
 						<img
 							src={qrCodeDataURL}
-							alt="QR Code"
-							class="block h-auto max-w-full object-contain"
-							style="width: {size}px; height: {size}px;"
+							alt="Generated QR Code{qrTitle.trim() ? ' with title: ' + qrTitle.trim() : ''}"
+							class="block"
+							style="width: {qrImageActualWidth}px; height: {qrImageActualHeight}px;"
 						/>
 					</div>
 				{:else}
 					<div
-						class="mx-auto flex w-full max-w-full items-center justify-center rounded-lg border border-dashed border-gray-300"
-						style="width: {size + 32}px; height: {size + 32}px;"
+						class="mx-auto flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-700 p-4 text-center"
+						style="width: {qrImageActualWidth + 32}px; height: {qrImageActualHeight + 32}px;"
 					>
+						<svg
+							class="mb-2 h-12 w-12 text-gray-600"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="1"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+							<path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10v10H7z" />
+						</svg>
 						<p class="text-sm text-gray-500">QR code will appear here</p>
+						<p class="text-xs text-gray-600">Configure options to generate</p>
 					</div>
 				{/if}
 
-				{#if qrCodeDataURL}
+				<!-- Color Pickers and Download Button (only if QR code is visible) -->
+				{#if qrCodeDataURL && !isGenerating}
 					<div
-						class="qr-color-inputs"
-						style="display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center;"
+						class="qr-color-inputs flex flex-wrap items-center justify-center gap-4"
+						style="max-width: {qrImageActualWidth + 32}px;"
 					>
-						<label style="display: flex; align-items: center;" class="text-blue-500">
-							<span style="margin-right: 0.5rem;">Dark color</span>
+						<label class="flex items-center text-sm text-blue-500">
+							<span class="mr-2">Dark Color:</span>
 							<input
 								type="color"
 								bind:value={darkColor}
-								class="border-magenta-500 rounded-sm border"
+								class="h-8 w-8 cursor-pointer rounded border border-blue-600 bg-gray-700 p-0"
 							/>
 						</label>
-						<label style="display: flex; align-items: center;" class="text-blue-500">
-							<span style="margin-right: 0.5rem;">Light color</span>
+						<label class="flex items-center text-sm text-blue-500">
+							<span class="mr-2">Light Color:</span>
 							<input
 								type="color"
-								class="border-magenta-500 m-0 rounded-sm border p-0"
 								bind:value={lightColor}
+								class="h-8 w-8 cursor-pointer rounded border border-blue-600 bg-gray-700 p-0"
 							/>
 						</label>
 					</div>
 
 					<Button.Root
 						onclick={downloadQRCode}
-						disabled={isGenerating}
-						class="h-10 cursor-pointer rounded-lg  bg-[#d9ff7a] px-6 text-sm font-medium text-gray-800 transition-colors hover:bg-[#bede68] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+						class="h-10 cursor-pointer rounded-lg bg-[#d9ff7a] px-6 text-sm font-medium text-gray-800 transition-colors hover:bg-[#bede68] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
 					>
 						Download Image
 					</Button.Root>
@@ -282,5 +347,16 @@
 </div>
 
 <style>
-	/* Empty style block to ensure proper CSS processing */
+	/* Make color input clickable area cover the preview box better */
+	input[type='color']::-webkit-color-swatch-wrapper {
+		padding: 0;
+	}
+	input[type='color']::-webkit-color-swatch {
+		border: none;
+		border-radius: 0.25rem; /* Match rounded */
+	}
+	input[type='color']::-moz-color-swatch {
+		border: none;
+		border-radius: 0.25rem; /* Match rounded */
+	}
 </style>
