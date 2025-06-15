@@ -20,11 +20,19 @@
 
 	let qrCodeDataURL = $state('');
 	let size = $state(256); // This is the size of the QR code graphic itself
-	let errorCorrectionLevel = $state('M');
 	let isGenerating = $state(false);
 
 	let darkColor = $state('#000000');
 	let lightColor = $state('#ffffff');
+
+	// Error Correction Level
+	let errorCorrectionSliderValue = $state(1); // 0: L, 1: M, 2: Q, 3: H. Default to M (15%)
+	const errorCorrectionLevels = ['L', 'M', 'Q', 'H'];
+	const errorCorrectionLabels = ['L (7%)', 'M (15%)', 'Q (25%)', 'H (30%)'];
+
+	let errorCorrectionLevel = $derived(errorCorrectionLevels[errorCorrectionSliderValue]);
+	let currentErrorCorrectionDisplayLabel = $derived(errorCorrectionLabels[errorCorrectionSliderValue]);
+
 
 	const modeOptions = [
 		{ value: 'text', label: 'Text' },
@@ -67,7 +75,7 @@
 
 	$effect(() => {
 		const capturedSize = size;
-		const capturedErrorCorrectionLevel = errorCorrectionLevel;
+		const capturedErrorCorrectionLevel = errorCorrectionLevel; // This will now use the derived value
 		const textToEncode = activeFormOutput;
 		const capturedQrTitle = qrTitle;
 		const capturedDarkColor = darkColor;
@@ -113,23 +121,21 @@
 						ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 						// Draw QR code image onto the canvas
-						ctx.drawImage(img, CANVAS_QR_PADDING, CANVAS_QR_PADDING, capturedSize, capturedSize);
+						ctx.drawImage(img, CANVAS_QR_PADDING, CANVAS_QR_PADDING + titleAreaHeightOnCanvas, capturedSize, capturedSize);
 
-						// If title is provided, draw it below the QR code
+
+						// If title is provided, draw it at the top of the QR code
 						if (titleText) {
 							ctx.fillStyle = capturedDarkColor; // Title text color
 							ctx.font = `${CANVAS_TITLE_FONT_SIZE}px Arial`; // Consider making font family configurable
 							ctx.textAlign = 'center';
-							ctx.textBaseline = 'top'; // Align the top of the text to the Y coordinate
+							ctx.textBaseline = 'top'; 
 
-							const titleTextY =
-								CANVAS_QR_PADDING + // Top padding for QR on canvas
-								capturedSize + // QR graphic height
-								CANVAS_TITLE_AREA_VERTICAL_PADDING; // Padding above title text
+							const titleTextY = CANVAS_TITLE_AREA_VERTICAL_PADDING; // Padding above title text
 
 							ctx.fillText(titleText, canvas.width / 2, titleTextY);
 						}
-
+						
 						// Update reactive state with the new Data URL from canvas
 						qrCodeDataURL = canvas.toDataURL('image/png');
 						resolve();
@@ -154,7 +160,7 @@
 <div class="flex min-h-screen items-center justify-center bg-gray-900 p-4 md:p-6 lg:p-8">
 	<div class="fixed top-0 left-0 bg-gray-900 p-4 font-[Megrim] text-4xl text-blue-400">QRding</div>
 	<div class="w-full max-w-[1080px] bg-gray-900">
-		<div class="flex flex-col items-center gap-8 lg:flex-row lg:items-center">
+		<div class="flex flex-col items-center gap-8 lg:flex-row lg:items-start">
 			<!-- Left Section -->
 			<div class="w-full max-w-md space-y-6 lg:w-[350px] lg:flex-none">
 				<!-- Mode Selector -->
@@ -247,6 +253,32 @@
 						min={128}
 						max={512}
 						step={32}
+						type="single"
+						class="relative flex h-5 w-full touch-none items-center select-none"
+					>
+						<span
+							class="relative h-2 w-full grow cursor-pointer overflow-hidden rounded-full bg-gray-600"
+						>
+							<Slider.Range class="absolute h-full bg-blue-500" />
+						</span>
+						<Slider.Thumb
+							index={0}
+							class="block h-4 w-4 cursor-pointer rounded-full border-2 border-black bg-white shadow-sm transition-shadow hover:shadow-md focus:ring-2 focus:ring-black focus:ring-offset-2 focus:outline-none"
+						/>
+					</Slider.Root>
+				</div>
+
+				<!-- Error Correction Level Slider -->
+				<div class="space-y-3">
+					<div class="flex items-center justify-between">
+						<label class="text-sm font-medium text-blue-600">Error Correction</label>
+						<span class="text-sm font-medium text-blue-400">{currentErrorCorrectionDisplayLabel}</span>
+					</div>
+					<Slider.Root
+						bind:value={errorCorrectionSliderValue}
+						min={0}
+						max={3}
+						step={1}
 						type="single"
 						class="relative flex h-5 w-full touch-none items-center select-none"
 					>
