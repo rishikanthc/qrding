@@ -10,6 +10,8 @@ QRding is a simple self-hosted QR code generator. It includes templates for crea
 * QR code for generic link sharing and text
 * Customize size of QR code image
 * Customize color of QR codes
+* Embed logo on to QR code
+* Adjustable error correction rate
 
 ### Screenshots and Demo
 
