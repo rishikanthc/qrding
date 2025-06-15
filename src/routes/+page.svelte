@@ -12,6 +12,8 @@
 	const CANVAS_QR_PADDING = 10; // Padding around the QR code graphic on the canvas
 	const CANVAS_TITLE_FONT_SIZE = 20; // Font size for the title
 	const CANVAS_TITLE_AREA_VERTICAL_PADDING = 5; // Vertical padding above and below the title text (each side)
+	const LOGO_MAX_PERCENTAGE_OF_QR = 0.25; // Logo max size relative to QR code (e.g., 0.25 = 25%)
+	const LOGO_BACKGROUND_PADDING = 4; // Padding around the logo for its background clearing box
 
 	let selectedModeValue = $state('wifi');
 	let qrTitle = $state('');
@@ -31,8 +33,14 @@
 	const errorCorrectionLabels = ['L (7%)', 'M (15%)', 'Q (25%)', 'H (30%)'];
 
 	let errorCorrectionLevel = $derived(errorCorrectionLevels[errorCorrectionSliderValue]);
-	let currentErrorCorrectionDisplayLabel = $derived(errorCorrectionLabels[errorCorrectionSliderValue]);
+	let currentErrorCorrectionDisplayLabel = $derived(
+		errorCorrectionLabels[errorCorrectionSliderValue]
+	);
 
+	// Logo
+	let logoFile = $state(null); // Will hold the File object
+	let logoDataURL = $state(''); // Will hold the base64 data URL for the logo
+	let logoInputRef = $state(null); // To reference the file input for clearing
 
 	const modeOptions = [
 		{ value: 'text', label: 'Text' },
@@ -68,18 +76,42 @@
 			baseFilename = activeFilenameHint.replace(/[^-\w\s]/g, '').replace(/\s+/g, '_');
 		}
 
-		link.download = `${baseFilename}-${size}-${timestamp}.png`;
+		link.download = `${baseFilename}-${size}-${errorCorrectionLevel}${logoFile ? '-logo' : ''}-${timestamp}.png`;
 		link.href = qrCodeDataURL;
 		link.click();
 	}
 
+	function handleLogoUpload(event) {
+		const file = event.target.files[0];
+		if (file) {
+			logoFile = file;
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				logoDataURL = e.target.result;
+			};
+			reader.readAsDataURL(file);
+		} else {
+			logoFile = null;
+			logoDataURL = '';
+		}
+	}
+
+	function clearLogo() {
+		logoFile = null;
+		logoDataURL = '';
+		if (logoInputRef) {
+			logoInputRef.value = ''; // Clear the file input
+		}
+	}
+
 	$effect(() => {
 		const capturedSize = size;
-		const capturedErrorCorrectionLevel = errorCorrectionLevel; // This will now use the derived value
+		const capturedErrorCorrectionLevel = errorCorrectionLevel;
 		const textToEncode = activeFormOutput;
 		const capturedQrTitle = qrTitle;
 		const capturedDarkColor = darkColor;
 		const capturedLightColor = lightColor;
+		const capturedLogoDataURL = logoDataURL; // Capture logo data URL
 
 		(async () => {
 			if (!textToEncode.trim()) {
@@ -98,17 +130,14 @@
 					},
 					errorCorrectionLevel: capturedErrorCorrectionLevel
 				};
-				// Generate QR code as a data URL (this is the QR pattern only)
 				const rawQrDataUrl = await QRCode.toDataURL(textToEncode, qrOptions);
 
-				// Draw QR and title onto a new canvas
 				await new Promise((resolve, reject) => {
-					const img = new Image();
-					img.onload = () => {
+					const qrImg = new Image();
+					qrImg.onload = () => {
 						const canvas = document.createElement('canvas');
 						const ctx = canvas.getContext('2d');
 						const titleText = capturedQrTitle.trim();
-
 						const titleAreaHeightOnCanvas = titleText
 							? CANVAS_TITLE_FONT_SIZE + CANVAS_TITLE_AREA_VERTICAL_PADDING * 2
 							: 0;
@@ -116,36 +145,86 @@
 						canvas.width = capturedSize + CANVAS_QR_PADDING * 2;
 						canvas.height = capturedSize + CANVAS_QR_PADDING * 2 + titleAreaHeightOnCanvas;
 
-						// Fill canvas background with the chosen light color
+						// Fill canvas background
 						ctx.fillStyle = capturedLightColor;
 						ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-						// Draw QR code image onto the canvas
-						ctx.drawImage(img, CANVAS_QR_PADDING, CANVAS_QR_PADDING + titleAreaHeightOnCanvas, capturedSize, capturedSize);
+						// QR code Y position on canvas (accounts for title area)
+						const qrYOnCanvas = CANVAS_QR_PADDING + titleAreaHeightOnCanvas;
 
+						// Draw QR code image
+						ctx.drawImage(qrImg, CANVAS_QR_PADDING, qrYOnCanvas, capturedSize, capturedSize);
 
-						// If title is provided, draw it at the top of the QR code
+						// Draw title if provided
 						if (titleText) {
-							ctx.fillStyle = capturedDarkColor; // Title text color
-							ctx.font = `${CANVAS_TITLE_FONT_SIZE}px Arial`; // Consider making font family configurable
+							ctx.fillStyle = capturedDarkColor;
+							ctx.font = `${CANVAS_TITLE_FONT_SIZE}px Arial`;
 							ctx.textAlign = 'center';
-							ctx.textBaseline = 'top'; 
-
-							const titleTextY = CANVAS_TITLE_AREA_VERTICAL_PADDING; // Padding above title text
-
-							ctx.fillText(titleText, canvas.width / 2, titleTextY);
+							ctx.textBaseline = 'top';
+							ctx.fillText(titleText, canvas.width / 2, CANVAS_TITLE_AREA_VERTICAL_PADDING);
 						}
-						
-						// Update reactive state with the new Data URL from canvas
-						qrCodeDataURL = canvas.toDataURL('image/png');
-						resolve();
+
+						// If logo is present, draw it
+						if (capturedLogoDataURL) {
+							const logoImg = new Image();
+							logoImg.onload = () => {
+								const maxLogoDim = capturedSize * LOGO_MAX_PERCENTAGE_OF_QR;
+								let logoWidth = logoImg.width;
+								let logoHeight = logoImg.height;
+
+								// Scale logo to fit within max dimensions while maintaining aspect ratio
+								if (logoWidth > maxLogoDim || logoHeight > maxLogoDim) {
+									if (logoWidth > logoHeight) {
+										logoHeight = (logoHeight / logoWidth) * maxLogoDim;
+										logoWidth = maxLogoDim;
+									} else {
+										logoWidth = (logoWidth / logoHeight) * maxLogoDim;
+										logoHeight = maxLogoDim;
+									}
+								}
+
+								// Calculate positions for logo and its background
+								// The logo should be centered on the QR code itself, not the whole canvas.
+								const qrCenterX = CANVAS_QR_PADDING + capturedSize / 2;
+								const qrCenterY = qrYOnCanvas + capturedSize / 2;
+
+								const logoBgWidth = logoWidth + LOGO_BACKGROUND_PADDING * 2;
+								const logoBgHeight = logoHeight + LOGO_BACKGROUND_PADDING * 2;
+								const logoBgX = qrCenterX - logoBgWidth / 2;
+								const logoBgY = qrCenterY - logoBgHeight / 2;
+
+								const logoX = qrCenterX - logoWidth / 2;
+								const logoY = qrCenterY - logoHeight / 2;
+
+								// Draw a clearing rectangle (background for logo)
+								ctx.fillStyle = capturedLightColor; // Use light color for the clearing area
+								ctx.fillRect(logoBgX, logoBgY, logoBgWidth, logoBgHeight);
+
+								// Draw the logo
+								ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
+
+								qrCodeDataURL = canvas.toDataURL('image/png');
+								resolve();
+							};
+							logoImg.onerror = (errEvent) => {
+								console.error('Error loading logo image:', errEvent);
+								// Proceed without logo if it fails to load
+								qrCodeDataURL = canvas.toDataURL('image/png');
+								resolve();
+							};
+							logoImg.src = capturedLogoDataURL;
+						} else {
+							// No logo, resolve immediately after QR & title
+							qrCodeDataURL = canvas.toDataURL('image/png');
+							resolve();
+						}
 					};
-					img.onerror = (errEvent) => {
+					qrImg.onerror = (errEvent) => {
 						console.error('Error loading QR code image for canvas drawing:', errEvent);
-						qrCodeDataURL = ''; // Clear QR code on error
+						qrCodeDataURL = '';
 						reject(new Error('Failed to load QR image onto canvas.'));
 					};
-					img.src = rawQrDataUrl;
+					qrImg.src = rawQrDataUrl;
 				});
 			} catch (error) {
 				console.error('Error in QR generation pipeline:', error);
@@ -160,7 +239,7 @@
 <div class="flex min-h-screen items-center justify-center bg-gray-900 p-4 md:p-6 lg:p-8">
 	<div class="fixed top-0 left-0 bg-gray-900 p-4 font-[Megrim] text-4xl text-blue-400">QRding</div>
 	<div class="w-full max-w-[1080px] bg-gray-900">
-		<div class="flex flex-col items-center gap-8 lg:flex-row lg:items-start">
+		<div class="flex flex-col items-center gap-8 lg:flex-row lg:items-center">
 			<!-- Left Section -->
 			<div class="w-full max-w-md space-y-6 lg:w-[350px] lg:flex-none">
 				<!-- Mode Selector -->
@@ -272,7 +351,9 @@
 				<div class="space-y-3">
 					<div class="flex items-center justify-between">
 						<label class="text-sm font-medium text-blue-600">Error Correction</label>
-						<span class="text-sm font-medium text-blue-400">{currentErrorCorrectionDisplayLabel}</span>
+						<span class="text-sm font-medium text-blue-400"
+							>{currentErrorCorrectionDisplayLabel}</span
+						>
 					</div>
 					<Slider.Root
 						bind:value={errorCorrectionSliderValue}
@@ -293,6 +374,32 @@
 						/>
 					</Slider.Root>
 				</div>
+
+				<!-- Logo Upload -->
+				<div class="space-y-3">
+					<label class="mb-2 block text-sm font-medium text-blue-500">Logo (Optional)</label>
+					<input
+						bind:this={logoInputRef}
+						type="file"
+						accept="image/*"
+						on:change={handleLogoUpload}
+						class="block w-full text-sm text-gray-400 file:mr-4 file:rounded-md file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
+					/>
+					{#if logoDataURL}
+						<div class="mt-2 flex items-center gap-2">
+							<img
+								src={logoDataURL}
+								alt="Logo preview"
+								class="h-10 w-10 rounded border border-gray-600 object-contain"
+							/>
+							<Button.Root
+								onclick={clearLogo}
+								class="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700"
+								>Clear Logo</Button.Root
+							>
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Right Section: QR Code Display and Actions -->
@@ -300,7 +407,6 @@
 				class="mx-auto flex w-full max-w-[584px] flex-col items-center justify-center space-y-6 lg:w-auto lg:flex-none"
 			>
 				<!-- QR Code Display Area: Loading, Image, or Placeholder -->
-				<!-- The outer div's size is determined by qrImageActualWidth/Height + its own padding (p-4 = 1rem = 16px, so 32px total) -->
 				{#if isGenerating}
 					<div
 						class="mx-auto flex items-center justify-center rounded-lg border border-gray-500 p-4"
@@ -317,7 +423,9 @@
 					>
 						<img
 							src={qrCodeDataURL}
-							alt="Generated QR Code{qrTitle.trim() ? ' with title: ' + qrTitle.trim() : ''}"
+							alt="Generated QR Code{qrTitle.trim()
+								? ' with title: ' + qrTitle.trim()
+								: ''}{logoFile ? ' and logo' : ''}"
 							class="block"
 							style="width: {qrImageActualWidth}px; height: {qrImageActualHeight}px;"
 						/>
