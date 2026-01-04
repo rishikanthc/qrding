@@ -1,11 +1,8 @@
-version: '3.8'
-
 services:
   qrding:
     # build: .
     image: ghcr.io/rishikanthc/qrding:latest
-    container_name: sveltekit-app
+    container_name: qrding
     ports:
       - "3000:3000"
     restart: unless-stopped
-
